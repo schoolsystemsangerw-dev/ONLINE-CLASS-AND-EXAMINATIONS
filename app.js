@@ -1,20 +1,18 @@
-// Storage Manager using browser LocalStorage
-const DB = {
-    getProfiles: () => JSON.parse(localStorage.getItem('portal_profiles') || '[]'),
-    setProfiles: (data) => localStorage.setItem('portal_profiles', JSON.stringify(data)),
-    
-    getClasses: () => JSON.parse(localStorage.getItem('portal_classes') || '[]'),
-    setClasses: (data) => localStorage.setItem('portal_classes', JSON.stringify(data)),
-    
-    getExams: () => JSON.parse(localStorage.getItem('portal_exams') || '[]'),
-    setExams: (data) => localStorage.setItem('portal_exams', JSON.stringify(data)),
-    
-    getCurrentUser: () => JSON.parse(localStorage.getItem('portal_current_user') || 'null'),
-    setCurrentUser: (user) => localStorage.setItem('portal_current_user', JSON.stringify(user))
+// Initialize Supabase Client
+const SUPABASE_URL = 'https://ggiwmwinrcxrkqcevqnz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_SYYnHD1Ws3cz5lva25quxQ_ey7XgL4v';
+
+// Global Supabase Instance
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Session State Helper
+const Session = {
+    getUser: () => JSON.parse(localStorage.getItem('portal_current_user') || 'null'),
+    setUser: (user) => localStorage.setItem('portal_current_user', JSON.stringify(user)),
+    clear: () => localStorage.removeItem('portal_current_user')
 };
 
-// Global App State
-let currentUser = DB.getCurrentUser();
+let currentUser = Session.getUser();
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', () => {
@@ -26,13 +24,25 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Session Checker
-function checkSession() {
-    currentUser = DB.getCurrentUser();
+async function checkSession() {
+    currentUser = Session.getUser();
     const userBadge = document.getElementById('user-badge');
     const authStatus = document.getElementById('auth-status');
     const logoutBtn = document.getElementById('logout-btn');
 
     if (currentUser) {
+        // Re-verify status with Supabase DB
+        const { data: dbUser, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', currentUser.email)
+            .maybeSingle();
+
+        if (dbUser) {
+            currentUser = dbUser;
+            Session.setUser(dbUser);
+        }
+
         if (userBadge) {
             userBadge.classList.remove('hidden');
             userBadge.classList.add('flex');
@@ -43,7 +53,7 @@ function checkSession() {
         // Check teacher approval status
         if (currentUser.role === 'teacher' && currentUser.account_status === 'pending') {
             alert('Your account is awaiting payment verification by the System Owner.');
-            DB.setCurrentUser(null);
+            Session.clear();
             checkSession();
             return;
         }
@@ -56,7 +66,7 @@ function checkSession() {
     }
 }
 
-// Show/Hide Sections
+// Section Navigation Controls
 function hideAllSections() {
     ['auth-section', 'owner-dashboard', 'teacher-dashboard', 'student-dashboard'].forEach(id => {
         const el = document.getElementById(id);
@@ -86,7 +96,7 @@ function showRoleDashboard(role) {
     }
 }
 
-// Auth Tab Switching
+// Auth UI Navigation
 function setupAuthTabs() {
     const tabLogin = document.getElementById('tab-login');
     const tabRegister = document.getElementById('tab-register');
@@ -122,28 +132,32 @@ function setupAuthTabs() {
     }
 }
 
-// Form Event Listeners
+// Form Action Handlers
 function setupEventListeners() {
-    // Register Form Submit
+    // Account Registration (Supabase Insert)
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
-        registerForm.addEventListener('submit', (e) => {
+        registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const role = document.getElementById('reg-role').value;
             const name = document.getElementById('reg-name').value;
             const email = document.getElementById('reg-email').value;
             const phone = document.getElementById('reg-phone').value;
             const password = document.getElementById('reg-password').value;
-            
-            const profiles = DB.getProfiles();
 
-            if (profiles.some(p => p.email === email)) {
+            // Check if profile exists
+            const { data: existingUser } = await supabase
+                .from('profiles')
+                .select('email')
+                .eq('email', email)
+                .maybeSingle();
+
+            if (existingUser) {
                 alert('An account with this email already exists.');
                 return;
             }
 
             const newUser = {
-                id: Date.now().toString(),
                 role,
                 name,
                 email,
@@ -154,8 +168,12 @@ function setupEventListeners() {
                 payment_ref: role === 'teacher' ? (document.getElementById('reg-payment-ref')?.value || '') : ''
             };
 
-            profiles.push(newUser);
-            DB.setProfiles(profiles);
+            const { error } = await supabase.from('profiles').insert([newUser]);
+
+            if (error) {
+                alert('Registration failed: ' + error.message);
+                return;
+            }
 
             if (role === 'teacher') {
                 alert('Teacher account registered! Pending payment approval by System Owner.');
@@ -167,73 +185,85 @@ function setupEventListeners() {
         });
     }
 
-    // Login Form Submit
+    // Account Sign In (Supabase Query)
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
 
-            const profiles = DB.getProfiles();
-            const user = profiles.find(p => p.email === email && p.password === password);
+            const { data: user, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('email', email)
+                .eq('password', password)
+                .maybeSingle();
 
-            if (!user) {
+            if (error || !user) {
                 alert('Invalid email or password.');
                 return;
             }
 
-            DB.setCurrentUser(user);
+            Session.setUser(user);
             checkSession();
         });
     }
 
-    // Logout Button
+    // Logout Action
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
-            DB.setCurrentUser(null);
+            Session.clear();
             checkSession();
         });
     }
 
-    // Create Class Form
+    // Class Generator (Supabase Insert)
     const createClassForm = document.getElementById('create-class-form');
     if (createClassForm) {
-        createClassForm.addEventListener('submit', (e) => {
+        createClassForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('class-name').value;
             const subject = document.getElementById('class-subject').value;
             const code = subject.substring(0, 3).toUpperCase() + '-' + Math.floor(1000 + Math.random() * 9000);
 
-            const classes = DB.getClasses();
-            classes.push({
-                id: Date.now().toString(),
+            const newClass = {
                 teacher_email: currentUser.email,
                 class_name: name,
                 subject: subject,
                 class_code: code
-            });
+            };
 
-            DB.setClasses(classes);
+            const { error } = await supabase.from('classes').insert([newClass]);
+
+            if (error) {
+                alert('Error creating class: ' + error.message);
+                return;
+            }
+
             e.target.reset();
             renderTeacherDashboard();
         });
     }
 }
 
-// Render Owner Dashboard
-function renderOwnerDashboard() {
-    const profiles = DB.getProfiles().filter(p => p.account_status === 'pending');
+// Render System Owner Dashboard
+async function renderOwnerDashboard() {
     const container = document.getElementById('owner-pending-list');
     if (!container) return;
 
-    if (profiles.length === 0) {
+    const { data: pendingTeachers, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('account_status', 'pending');
+
+    if (error || !pendingTeachers || pendingTeachers.length === 0) {
         container.innerHTML = `<p class="text-xs text-slate-500 italic py-4 text-center">No pending teacher payment approvals.</p>`;
         return;
     }
 
-    container.innerHTML = profiles.map(p => `
+    container.innerHTML = pendingTeachers.map(p => `
         <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80 flex justify-between items-center">
             <div>
                 <h4 class="font-bold text-sm text-white">${p.name} (${p.school || 'Teacher'})</h4>
@@ -247,25 +277,33 @@ function renderOwnerDashboard() {
     `).join('');
 }
 
-// Global scope window assignment for inline button handlers
-window.approveUser = function(email) {
-    const profiles = DB.getProfiles();
-    const user = profiles.find(p => p.email === email);
-    if (user) {
-        user.account_status = 'active';
-        DB.setProfiles(profiles);
-        renderOwnerDashboard();
-        alert(`Account for ${user.name} has been approved!`);
+// Approve Teacher Account Payment
+window.approveUser = async function(email) {
+    const { error } = await supabase
+        .from('profiles')
+        .update({ account_status: 'active' })
+        .eq('email', email);
+
+    if (error) {
+        alert('Approval failed: ' + error.message);
+        return;
     }
+
+    renderOwnerDashboard();
+    alert(`Account approved successfully!`);
 };
 
-// Render Teacher Dashboard
-function renderTeacherDashboard() {
-    const classes = DB.getClasses().filter(c => c.teacher_email === currentUser?.email);
+// Render Teacher Classes
+async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
     if (!container) return;
 
-    if (classes.length === 0) {
+    const { data: classes, error } = await supabase
+        .from('classes')
+        .select('*')
+        .eq('teacher_email', currentUser?.email);
+
+    if (error || !classes || classes.length === 0) {
         container.innerHTML = `<p class="text-xs text-slate-500 italic py-4 text-center col-span-2">No classes created yet. Fill out the form on the left to create your first class.</p>`;
         return;
     }
