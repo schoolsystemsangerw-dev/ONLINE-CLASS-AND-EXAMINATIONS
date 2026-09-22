@@ -32,7 +32,7 @@ async function checkSession() {
 
     if (currentUser) {
         // Re-verify status with Supabase DB
-        const { data: dbUser, error } = await supabase
+        const { data: dbUser, error } = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('email', currentUser.email)
@@ -146,7 +146,7 @@ function setupEventListeners() {
             const password = document.getElementById('reg-password').value;
 
             // Check if profile exists
-            const { data: existingUser } = await supabase
+            const { data: existingUser } = await supabaseClient
                 .from('profiles')
                 .select('email')
                 .eq('email', email)
@@ -168,7 +168,7 @@ function setupEventListeners() {
                 payment_ref: role === 'teacher' ? (document.getElementById('reg-payment-ref')?.value || '') : ''
             };
 
-            const { error } = await supabase.from('profiles').insert([newUser]);
+            const { error } = await supabaseClient.from('profiles').insert([newUser]);
 
             if (error) {
                 alert('Registration failed: ' + error.message);
@@ -193,7 +193,7 @@ function setupEventListeners() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
 
-            const { data: user, error } = await supabase
+            const { data: user, error } = await supabaseClient
                 .from('profiles')
                 .select('*')
                 .eq('email', email)
@@ -235,7 +235,7 @@ function setupEventListeners() {
                 class_code: code
             };
 
-            const { error } = await supabase.from('classes').insert([newClass]);
+            const { error } = await supabaseClient.from('classes').insert([newClass]);
 
             if (error) {
                 alert('Error creating class: ' + error.message);
@@ -253,7 +253,7 @@ async function renderOwnerDashboard() {
     const container = document.getElementById('owner-pending-list');
     if (!container) return;
 
-    const { data: pendingTeachers, error } = await supabase
+    const { data: pendingTeachers, error } = await supabaseClient
         .from('profiles')
         .select('*')
         .eq('account_status', 'pending');
@@ -279,7 +279,7 @@ async function renderOwnerDashboard() {
 
 // Approve Teacher Account Payment
 window.approveUser = async function(email) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('profiles')
         .update({ account_status: 'active' })
         .eq('email', email);
@@ -298,7 +298,7 @@ async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
     if (!container) return;
 
-    const { data: classes, error } = await supabase
+    const { data: classes, error } = await supabaseClient
         .from('classes')
         .select('*')
         .eq('teacher_email', currentUser?.email);
