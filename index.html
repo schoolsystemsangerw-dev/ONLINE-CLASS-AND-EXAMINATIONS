@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-900 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduPortal - Modern Learning & Examination System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col bg-slate-950 text-slate-100 antialiased custom-scrollbar">
+
+    <!-- Top Navigation Bar -->
+    <header class="glass sticky top-0 z-40 w-full border-b border-slate-800/80 px-4 py-3 sm:px-6">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/20">
+                    <i data-lucide="graduation-cap" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <span class="font-bold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">EduPortal Pro</span>
+                    <span id="role-badge" class="hidden ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"></span>
+                </div>
+            </div>
+
+            <!-- Dynamic Header Controls / Profile -->
+            <div id="nav-user-controls" class="flex items-center space-x-3">
+                <div id="guest-nav" class="flex items-center space-x-2">
+                    <button onclick="switchTab('auth')" class="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors">Sign In / Register</button>
+                </div>
+                <div id="user-nav" class="hidden flex items-center space-x-3">
+                    <span id="nav-user-name" class="text-sm font-semibold text-slate-200 hidden sm:inline-block"></span>
+                    <button onclick="logout()" class="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all" title="Logout">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Global School Branding Banner (Visible when active user belongs to a school) -->
+    <div id="school-branding-bar" class="hidden bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-800 px-4 py-2.5">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+            <div class="flex items-center space-x-3">
+                <img id="brand-school-logo" class="w-8 h-8 rounded-lg object-cover bg-slate-800 border border-slate-700" src="" alt="School Logo">
+                <div>
+                    <span id="brand-school-name" class="font-bold text-white block">---</span>
+                    <span id="brand-teacher-info" class="text-slate-400">---</span>
+                </div>
+            </div>
+            <div id="brand-location-info" class="flex items-center space-x-1.5 text-slate-400 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/50">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-cyan-400"></i>
+                <span id="brand-location-text">Nyagatare, Eastern Province</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
+
+        <!-- System Notification Toast Container -->
+        <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-md w-full"></div>
+
+        <!-- AUTH TAB (Sign In / Register) -->
+        <section id="tab-auth" class="tab-page max-w-lg mx-auto py-8">
+            <div class="glass rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-800">
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-white mb-1">Welcome to EduPortal</h2>
+                    <p class="text-slate-400 text-sm">Interactive Virtual Classroom & Exam System</p>
+                </div>
+
+                <!-- Auth Sub-tabs -->
+                <div class="flex bg-slate-900/80 p-1 rounded-xl mb-6 border border-slate-800">
+                    <button id="btn-login-tab" onclick="toggleAuthMode('login')" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-cyan-600 text-white shadow transition-all">Sign In</button>
+                    <button id="btn-register-tab" onclick="toggleAuthMode('register')" class="flex-1 py-2 text-sm font-semibold text-slate-400 hover:text-white rounded-lg transition-all">Register Account</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email Address</label>
+                        <input type="email" id="login-email" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors" placeholder="name@domain.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Password</label>
+                        <input type="password" id="login-password" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl shadow-lg shadow-cyan-600/20 transition-all">
+                        Sign In
+                    </button>
+                </form>
+
+                <!-- Registration Form -->
+                <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Account Role</label>
+                        <select id="reg-role" onchange="toggleRoleFields()" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors">
+                            <option value="student">Student Account</option>
+                            <option value="teacher">Teacher / Instructor</option>
+                            <option value="owner">System Owner (Super Admin)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Full Name</label>
+                        <input type="text" id="reg-name" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors" placeholder="John Doe">
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Email</label>
+                            <input type="email" id="reg-email" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors" placeholder="user@school.org">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Phone Number</label>
+                            <input type="text" id="reg-phone" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors" placeholder="+250 78... / Mobile">
+                        </div>
+                    </div>
+
+                    <!-- Teacher Specific Details -->
+                    <div id="teacher-fields" class="space-y-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800 hidden">
+                        <div class="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Teacher & School Profile</div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">School / Academy Name</label>
+                            <input type="text" id="reg-school-name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" placeholder="Nyagatare High School">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">School Location / Address</label>
+                            <input type="text" id="reg-school-location" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" placeholder="Nyagatare, Eastern Province">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">School Logo URL</label>
+                            <input type="url" id="reg-school-logo" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" placeholder="https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=100">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Mobile Money Payment TXN Ref (Subscription Approval)</label>
+                            <input type="text" id="reg-payment-txn" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100" placeholder="TXN-99882211">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Password</label>
+                        <input type="password" id="reg-password" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-slate-100 focus:outline-none focus:border-cyan-500 transition-colors" placeholder="••••••••">
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/20 transition-all">
+                        Complete Registration
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- OWNER / SUPER ADMIN DASHBOARD -->
+        <section id="tab-owner" class="tab-page space-y-6 hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">System Owner Dashboard</h1>
+                    <p class="text-slate-400 text-sm">Platform metrics, pending subscription approvals, and user governance.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold rounded-full flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Core System Active
+                    </span>
+                </div>
+            </div>
+
+            <!-- Platform Metrics Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Active Teachers</span>
+                        <i data-lucide="users" class="w-5 h-5 text-cyan-400"></i>
+                    </div>
+                    <div id="metric-teachers" class="text-2xl font-bold text-white">0</div>
+                </div>
+                <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Total Students</span>
+                        <i data-lucide="user-check" class="w-5 h-5 text-emerald-400"></i>
+                    </div>
+                    <div id="metric-students" class="text-2xl font-bold text-white">0</div>
+                </div>
+                <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Pending Approvals</span>
+                        <i data-lucide="clock" class="w-5 h-5 text-amber-400"></i>
+                    </div>
+                    <div id="metric-pending" class="text-2xl font-bold text-amber-400">0</div>
+                </div>
+                <div class="glass-card p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between text-slate-400 mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider">Active Classes</span>
+                        <i data-lucide="book-open" class="w-5 h-5 text-purple-400"></i>
+                    </div>
+                    <div id="metric-classes" class="text-2xl font-bold text-white">0</div>
+                </div>
+            </div>
+
+            <!-- Pending Approvals Queue (Mobile Money & Verification) -->
+            <div class="glass rounded-2xl p-6 border border-slate-800">
+                <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-amber-400"></i>
+                    Pending Subscription & Teacher Approvals Queue
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-900/80 text-xs font-semibold uppercase text-slate-400">
+                            <tr>
+                                <th class="p-3 rounded-l-lg">Teacher / School</th>
+                                <th class="p-3">Contact</th>
+                                <th class="p-3">Payment TXN Code</th>
+                                <th class="p-3">Location</th>
+                                <th class="p-3 text-right rounded-r-lg">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="owner-approvals-list" class="divide-y divide-slate-800/60">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- All Platform Users Management Table -->
+            <div class="glass rounded-2xl p-6 border border-slate-800">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5 text-cyan-400"></i> Registered Platform Accounts
+                    </h2>
+                    <input type="text" id="owner-search-users" onkeyup="renderOwnerDashboard()" placeholder="Search name or email..." class="bg-slate-900 border border-slate-700/80 rounded-xl px-3.5 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-cyan-500">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-300">
+                        <thead class="bg-slate-900/80 text-xs font-semibold uppercase text-slate-400">
+                            <tr>
+                                <th class="p-3">User</th>
+                                <th class="p-3">Role</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-right">Account Controls</th>
+                            </tr>
+                        </thead>
+                        <tbody id="owner-users-list" class="divide-y divide-slate-800/60">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TEACHER DASHBOARD -->
+        <section id="tab-teacher" class="tab-page space-y-6 hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Teacher Portal</h1>
+                    <p class="text-slate-400 text-sm">Manage classes, launch virtual video sessions, and design interactive exams.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="openModal('modal-create-class')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-xl text-sm shadow-lg shadow-cyan-600/20 flex items-center gap-2 transition-all">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i> Create New Class
+                    </button>
+                    <button onclick="openModal('modal-create-exam')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl text-sm shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i> Build Interactive Exam
+                    </button>
+                </div>
+            </div>
+
+            <!-- Teacher Classes & Virtual Room Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Managed Classes -->
+                <div class="lg:col-span-2 space-y-4">
+                    <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="book-open" class="w-5 h-5 text-cyan-400"></i> My Active Classes
+                    </h2>
+                    <div id="teacher-classes-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Class Cards dynamically populated -->
+                    </div>
+                </div>
+
+                <!-- Live Virtual Session Quick Launcher -->
+                <div class="glass-card p-5 rounded-2xl border border-slate-800 space-y-4 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-bold text-white flex items-center gap-2">
+                                <i data-lucide="video" class="w-5 h-5 text-rose-500 animate-pulse"></i> Live Classroom Studio
+                            </h3>
+                            <span class="px-2 py-0.5 text-xs bg-rose-500/10 text-rose-400 rounded-full font-medium">Ready</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">Start a live WebRTC interactive video presentation with screen share, raise hand queue, and real-time student chat.</p>
+                        
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Select Target Class</label>
+                        <select id="teacher-live-select-class" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-sm text-slate-100 mb-4">
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+
+                    <button onclick="launchVirtualClassroom('teacher')" class="w-full py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold rounded-xl shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 transition-all">
+                        <i data-lucide="video" class="w-4 h-4"></i> Start Virtual Classroom Session
+                    </button>
+                </div>
+            </div>
+
+            <!-- Published Exams & Live Submissions Analytics -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 text-emerald-400"></i> Active Assessments & Submissions
+                </h2>
+                <div id="teacher-exams-list" class="space-y-4">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- STUDENT DASHBOARD -->
+        <section id="tab-student" class="tab-page space-y-6 hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white">Student Portal</h1>
+                    <p class="text-slate-400 text-sm">Join classes using teacher code, enter live sessions, and complete assessments.</p>
+                </div>
+                <button onclick="openModal('modal-join-class')" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-xl text-sm shadow-lg shadow-cyan-600/20 flex items-center gap-2 transition-all">
+                    <i data-lucide="key-round" class="w-4 h-4"></i> Join Class with Code
+                </button>
+            </div>
+
+            <!-- Joined Classes & Enrolled Teachers Cards -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="school" class="w-5 h-5 text-cyan-400"></i> Enrolled Classes & School Directory
+                </h2>
+                <div id="student-classes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Available Interactive Exams & Submissions -->
+            <div class="space-y-4">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="file-check-2" class="w-5 h-5 text-emerald-400"></i> Pending Assessments
+                </h2>
+                <div id="student-exams-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MODAL: CREATE CLASS -->
+        <div id="modal-create-class" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+            <div class="glass w-full max-w-md rounded-2xl p-6 border border-slate-800 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-white">Create New Class</h3>
+                    <button onclick="closeModal('modal-create-class')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <form onsubmit="handleCreateClass(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Class Name</label>
+                        <input type="text" id="class-name" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2 text-slate-100" placeholder="e.g., Primary 5 English">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Subject / Description</label>
+                        <input type="text" id="class-subject" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2 text-slate-100" placeholder="e.g., English Grammar & Essay">
+                    </div>
+                    <button type="submit" class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl shadow-lg">Generate Class Code</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: JOIN CLASS -->
+        <div id="modal-join-class" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+            <div class="glass w-full max-w-md rounded-2xl p-6 border border-slate-800 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold text-white">Join Class with Code</h3>
+                    <button onclick="closeModal('modal-join-class')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <form onsubmit="handleJoinClass(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Class Code</label>
+                        <input type="text" id="join-code-input" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2 text-slate-100 uppercase tracking-widest text-center font-mono" placeholder="P5-ENG-891">
+                    </div>
+                    <button type="submit" class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-xl shadow-lg">Join Class</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL: CREATE INTERACTIVE EXAM -->
+        <div id="modal-create-exam" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden overflow-y-auto">
+            <div class="glass w-full max-w-2xl my-8 rounded-2xl p-6 border border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                <div class="flex justify-between items-center sticky top-0 bg-slate-900/90 py-2 border-b border-slate-800 z-10">
+                    <h3 class="text-lg font-bold text-white">Interactive Exam Builder</h3>
+                    <button onclick="closeModal('modal-create-exam')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+
+                <form onsubmit="handleSaveExam(event)" class="space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Target Class</label>
+                            <select id="exam-class-select" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-slate-100 text-sm"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 mb-1">Time Limit (Minutes)</label>
+                            <input type="number" id="exam-time-limit" min="1" max="180" value="15" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-slate-100 text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">Exam Title</label>
+                        <input type="text" id="exam-title" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-slate-100 text-sm" placeholder="Mid-Term English Assessment">
+                    </div>
+
+                    <!-- Question Container -->
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-300">Question Itemization</h4>
+                            <button type="button" onclick="addQuestionItem()" class="text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-slate-700">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Question
+                            </button>
+                        </div>
+                        <div id="questions-builder-container" class="space-y-4">
+                            <!-- Question Cards inserted dynamically -->
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-lg shadow-emerald-600/20">
+                        Publish Assessment
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- FULLSCREEN VIRTUAL CLASSROOM MODAL -->
+        <div id="modal-virtual-room" class="fixed inset-0 z-50 flex flex-col bg-slate-950 hidden">
+            <!-- Room Header -->
+            <div class="glass px-6 py-3 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
+                    <h3 id="room-title" class="font-bold text-white text-base">Live Classroom Session</h3>
+                    <span id="room-participant-count" class="px-2.5 py-0.5 rounded-full bg-slate-800 text-xs text-slate-300 border border-slate-700">1 Online</span>
+                </div>
+                <button onclick="exitVirtualClassroom()" class="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="phone-off" class="w-4 h-4"></i> Leave Class
+                </button>
+            </div>
+
+            <!-- Room Content: Video Screen + Chat Sidebar -->
+            <div class="flex-grow grid grid-cols-1 lg:grid-cols-4 overflow-hidden">
+                <!-- Main Stage Video Screen -->
+                <div class="lg:col-span-3 bg-slate-900 p-4 flex flex-col justify-between relative min-h-[350px]">
+                    <!-- Video Canvas Simulation -->
+                    <div id="video-stage" class="w-full h-full bg-slate-950 rounded-2xl border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden group">
+                        <img src="https://images.unsplash.com/photo-1577896851231-70ef18881754?w=1000" alt="Live Stream" class="absolute inset-0 w-full h-full object-cover opacity-60">
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent"></div>
+                        
+                        <!-- Teacher Presenter Overlay Badge -->
+                        <div class="absolute top-4 left-4 glass px-3 py-1.5 rounded-xl text-xs font-medium text-white flex items-center gap-2 border border-slate-700">
+                            <i data-lucide="video" class="w-4 h-4 text-emerald-400"></i> Main Presentation Feed
+                        </div>
+
+                        <!-- Active Hand Raise Notification -->
+                        <div id="hand-raised-badge" class="hidden absolute top-4 right-4 glass px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 border border-amber-500/40 flex items-center gap-2 animate-bounce">
+                            <i data-lucide="hand" class="w-4 h-4 text-amber-400"></i> Hand Raised!
+                        </div>
+                    </div>
+
+                    <!-- Classroom Control Bar -->
+                    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 glass px-6 py-3 rounded-2xl flex items-center space-x-4 border border-slate-700 shadow-2xl">
+                        <button id="btn-toggle-mic" onclick="toggleClassMic()" class="p-3 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors" title="Mic">
+                            <i data-lucide="mic" class="w-5 h-5"></i>
+                        </button>
+                        <button id="btn-toggle-cam" onclick="toggleClassCam()" class="p-3 rounded-xl bg-slate-800 text-slate-200 hover:bg-slate-700 transition-colors" title="Camera">
+                            <i data-lucide="video" class="w-5 h-5"></i>
+                        </button>
+                        <button id="btn-raise-hand" onclick="raiseClassHand()" class="p-3 rounded-xl bg-slate-800 text-slate-200 hover:bg-amber-500/20 hover:text-amber-300 transition-colors" title="Raise Hand">
+                            <i data-lucide="hand" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Classroom Real-time Chat Feed -->
+                <div class="glass border-l border-slate-800 flex flex-col h-full">
+                    <div class="p-3 border-b border-slate-800 text-xs font-bold uppercase text-slate-400 tracking-wider flex items-center gap-2">
+                        <i data-lucide="message-square" class="w-4 h-4 text-cyan-400"></i> Class Live Chat
+                    </div>
+                    <div id="class-chat-messages" class="flex-grow p-4 space-y-3 overflow-y-auto custom-scrollbar text-xs">
+                        <!-- Chat messages -->
+                    </div>
+                    <form onsubmit="sendClassChatMessage(event)" class="p-3 border-t border-slate-800 flex gap-2">
+                        <input type="text" id="class-chat-input" required class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100" placeholder="Type a message...">
+                        <button type="submit" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl"><i data-lucide="send" class="w-4 h-4"></i></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- FULLSCREEN INTERACTIVE EXAM ENGINE MODAL -->
+        <div id="modal-exam-player" class="fixed inset-0 z-50 flex flex-col bg-slate-950 hidden">
+            <!-- Exam Header -->
+            <div class="glass px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h2 id="player-exam-title" class="font-bold text-white text-lg">---</h2>
+                    <p id="player-exam-subject" class="text-xs text-slate-400">P5 English Assessment</p>
+                </div>
+                <!-- Countdown Timer -->
+                <div class="flex items-center space-x-3 bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl">
+                    <i data-lucide="timer" class="w-5 h-5 text-amber-400 animate-pulse"></i>
+                    <span id="exam-timer-display" class="font-mono text-lg font-bold text-amber-400">15:00</span>
+                </div>
+            </div>
+
+            <!-- Exam Main Content Container -->
+            <div id="exam-player-body" class="flex-grow max-w-3xl w-full mx-auto p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-6">
+                <!-- Dynamically rendered questions or score summary -->
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        /* APP STATE INITIALIZATION & LOCALSTORAGE MANAGEMENT */
+        const STORAGE_KEY = 'EDUPORTAL_PRO_STATE_V1';
+
+        let appData = {
+            users: [
+                { id: 'u1', name: 'System Super Admin', email: 'admin@eduportal.com', password: 'admin', role: 'owner', status: 'approved' },
+                { id: 'u2', name: 'Teacher Joseph', email: 'teacher@school.org', password: '123', role: 'teacher', status: 'approved', schoolName: 'Nyagatare Secondary', schoolLocation: 'Nyagatare, Eastern Province', schoolLogo: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=100', paymentTxn: 'TXN-00122' },
+                { id: 'u3', name: 'Alice Student', email: 'student@school.org', password: '123', role: 'student', status: 'approved' }
+            ],
+            classes: [
+                { id: 'c1', name: 'Primary 5 English', subject: 'Grammar & Writing', code: 'P5-ENG-2026', teacherId: 'u2', students: ['u3'] }
+            ],
+            exams: [
+                {
+                    id: 'e1',
+                    classId: 'c1',
+                    title: 'English Grammar Mid-Term',
+                    timeLimit: 15, // in minutes
+                    questions: [
+                        { id: 'q1', type: 'mcq', question: 'What is the past tense of "Go"?', options: ['Goed', 'Gone', 'Went', 'Going'], answer: 'Went', points: 5 },
+                        { id: 'q2', type: 'fill', question: 'Complete the sentence: She ____ reading a book yesterday.', answer: 'was', points: 5 }
+                    ]
+                }
+            ],
+            submissions: []
+        };
+
+        let currentUser = null;
+        let activeExamSession = null;
+        let examTimerInterval = null;
+
+        // Initialize state from LocalStorage on startup
+        function initStore() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    appData = JSON.parse(stored);
+                } catch(e) {
+                    console.error('State parse failed', e);
+                }
+            } else {
+                saveStore();
+            }
+        }
+
+        function saveStore() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        // System Notification Toast
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgClass = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-rose-600' : 'bg-cyan-600';
+            toast.className = `${bgClass} text-white px-4 py-3 rounded-xl shadow-2xl pointer-events-auto flex items-center justify-between text-sm transition-all transform duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="ml-3 text-white/80 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>`;
+            container.appendChild(toast);
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        /* AUTHENTICATION & DASHBOARD SWITCHING */
+        function toggleAuthMode(mode) {
+            const loginForm = document.getElementById('form-login');
+            const regForm = document.getElementById('form-register');
+            const btnLogin = document.getElementById('btn-login-tab');
+            const btnReg = document.getElementById('btn-register-tab');
+
+            if (mode === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                btnLogin.className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-cyan-600 text-white shadow transition-all';
+                btnReg.className = 'flex-1 py-2 text-sm font-semibold text-slate-400 hover:text-white rounded-lg transition-all';
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                btnReg.className = 'flex-1 py-2 text-sm font-semibold rounded-lg bg-cyan-600 text-white shadow transition-all';
+                btnLogin.className = 'flex-1 py-2 text-sm font-semibold text-slate-400 hover:text-white rounded-lg transition-all';
+            }
+        }
+
+        function toggleRoleFields() {
+            const role = document.getElementById('reg-role').value;
+            const teacherFields = document.getElementById('teacher-fields');
+            if (role === 'teacher') {
+                teacherFields.classList.remove('hidden');
+            } else {
+                teacherFields.classList.add('hidden');
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            const user = appData.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
+            if (!user) {
+                showToast('Invalid credentials. Please try again.', 'error');
+                return;
+            }
+
+            if (user.status === 'pending') {
+                showToast('Account pending Super Admin approval for Mobile Money/Subscription verification.', 'error');
+                return;
+            }
+
+            if (user.status === 'suspended') {
+                showToast('Your account has been suspended by system admin.', 'error');
+                return;
+            }
+
+            currentUser = user;
+            showToast(`Welcome back, ${user.name}!`, 'success');
+            updateUserNav();
+            switchTab(user.role);
+        }
+
+        function handleRegister(e) {
+            e.preventDefault();
+            const role = document.getElementById('reg-role').value;
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const password = document.getElementById('reg-password').value.trim();
+
+            if (appData.users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+                showToast('An account with this email already exists.', 'error');
+                return;
+            }
+
+            const newUser = {
+                id: 'u_' + Date.now(),
+                name,
+                email,
+                phone,
+                password,
+                role,
+                status: role === 'teacher' ? 'pending' : 'approved'
+            };
+
+            if (role === 'teacher') {
+                newUser.schoolName = document.getElementById('reg-school-name').value.trim() || 'Unassigned School';
+                newUser.schoolLocation = document.getElementById('reg-school-location').value.trim() || 'Nyagatare, Eastern Province';
+                newUser.schoolLogo = document.getElementById('reg-school-logo').value.trim() || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=100';
+                newUser.paymentTxn = document.getElementById('reg-payment-txn').value.trim() || 'N/A';
+            }
+
+            appData.users.push(newUser);
+            saveStore();
+
+            if (role === 'teacher') {
+                showToast('Teacher Account registered! Sent to Super Admin for Mobile Money TXN verification.', 'info');
+                toggleAuthMode('login');
+            } else {
+                showToast('Registration successful! You may now sign in.', 'success');
+                toggleAuthMode('login');
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            updateUserNav();
+            switchTab('auth');
+            showToast('Logged out successfully.', 'info');
+        }
+
+        function updateUserNav() {
+            const guestNav = document.getElementById('guest-nav');
+            const userNav = document.getElementById('user-nav');
+            const roleBadge = document.getElementById('role-badge');
+            const brandingBar = document.getElementById('school-branding-bar');
+
+            if (currentUser) {
+                guestNav.classList.add('hidden');
+                userNav.classList.remove('hidden');
+                document.getElementById('nav-user-name').innerText = currentUser.name;
+                roleBadge.innerText = currentUser.role.toUpperCase();
+                roleBadge.classList.remove('hidden');
+
+                // Render School Branding Header
+                let schoolLogo = 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=100';
+                let schoolName = 'EduPortal Academic System';
+                let teacherInfo = currentUser.name;
+                let location = 'Nyagatare, Eastern Province';
+
+                if (currentUser.role === 'teacher') {
+                    schoolLogo = currentUser.schoolLogo || schoolLogo;
+                    schoolName = currentUser.schoolName || schoolName;
+                    location = currentUser.schoolLocation || location;
+                } else if (currentUser.role === 'student') {
+                    // Find first class teacher
+                    const studentClass = appData.classes.find(c => c.students.includes(currentUser.id));
+                    if (studentClass) {
+                        const teacher = appData.users.find(u => u.id === studentClass.teacherId);
+                        if (teacher) {
+                            schoolLogo = teacher.schoolLogo || schoolLogo;
+                            schoolName = teacher.schoolName || schoolName;
+                            teacherInfo = `Teacher: ${teacher.name}`;
+                            location = teacher.schoolLocation || location;
+                        }
+                    }
+                }
+
+                document.getElementById('brand-school-logo').src = schoolLogo;
+                document.getElementById('brand-school-name').innerText = schoolName;
+                document.getElementById('brand-teacher-info').innerText = teacherInfo;
+                document.getElementById('brand-location-text').innerText = location;
+                brandingBar.classList.remove('hidden');
+
+            } else {
+                guestNav.classList.remove('hidden');
+                userNav.classList.add('hidden');
+                roleBadge.classList.add('hidden');
+                brandingBar.classList.add('hidden');
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-page').forEach(el => el.classList.add('hidden'));
+
+            if (tabId === 'auth') {
+                document.getElementById('tab-auth').classList.remove('hidden');
+            } else if (tabId === 'owner' && currentUser?.role === 'owner') {
+                document.getElementById('tab-owner').classList.remove('hidden');
+                renderOwnerDashboard();
+            } else if (tabId === 'teacher' && currentUser?.role === 'teacher') {
+                document.getElementById('tab-teacher').classList.remove('hidden');
+                renderTeacherDashboard();
+            } else if (tabId === 'student' && currentUser?.role === 'student') {
+                document.getElementById('tab-student').classList.remove('hidden');
+                renderStudentDashboard();
+            } else {
+                document.getElementById('tab-auth').classList.remove('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        /* OWNER / SUPER ADMIN CONTROL CENTER LOGIC */
+        function renderOwnerDashboard() {
+            // Calculate Metrics
+            const teachers = appData.users.filter(u => u.role === 'teacher' && u.status === 'approved');
+            const students = appData.users.filter(u => u.role === 'student');
+            const pending = appData.users.filter(u => u.status === 'pending');
+
+            document.getElementById('metric-teachers').innerText = teachers.length;
+            document.getElementById('metric-students').innerText = students.length;
+            document.getElementById('metric-pending').innerText = pending.length;
+            document.getElementById('metric-classes').innerText = appData.classes.length;
+
+            // Render Approvals Queue
+            const approvalsTbody = document.getElementById('owner-approvals-list');
+            approvalsTbody.innerHTML = '';
+
+            if (pending.length === 0) {
+                approvalsTbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500 italic">No pending teacher approvals.</td></tr>`;
+            } else {
+                pending.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-900/50";
+                    tr.innerHTML = `
+                        <td class="p-3">
+                            <div class="font-bold text-white">${u.name}</div>
+                            <div class="text-xs text-slate-400">${u.schoolName || 'N/A'}</div>
+                        </td>
+                        <td class="p-3">${u.phone || 'N/A'}<br><span class="text-xs text-slate-500">${u.email}</span></td>
+                        <td class="p-3"><span class="px-2 py-1 bg-amber-500/10 text-amber-400 rounded-md font-mono text-xs border border-amber-500/20">${u.paymentTxn || 'NO-TXN'}</span></td>
+                        <td class="p-3 text-xs text-slate-400">${u.schoolLocation || 'Nyagatare'}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="approveUser('${u.id}', 'approved')" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold mr-1">Approve</button>
+                            <button onclick="approveUser('${u.id}', 'rejected')" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold">Reject</button>
+                        </td>
+                    `;
+                    approvalsTbody.appendChild(tr);
+                });
+            }
+
+            // Render User Table
+            const searchVal = (document.getElementById('owner-search-users')?.value || '').toLowerCase();
+            const usersTbody = document.getElementById('owner-users-list');
+            usersTbody.innerHTML = '';
+
+            const filteredUsers = appData.users.filter(u => u.name.toLowerCase().includes(searchVal) || u.email.toLowerCase().includes(searchVal));
+
+            filteredUsers.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-900/50";
+                tr.innerHTML = `
+                    <td class="p-3">
+                        <div class="font-bold text-white">${u.name}</div>
+                        <div class="text-xs text-slate-500">${u.email}</div>
+                    </td>
+                    <td class="p-3 uppercase text-xs font-semibold ${u.role === 'teacher' ? 'text-cyan-400' : u.role === 'owner' ? 'text-purple-400' : 'text-slate-400'}">${u.role}</td>
+                    <td class="p-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${u.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400' : u.status === 'pending' ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'}">
+                            ${u.status}
+                        </span>
+                    </td>
+                    <td class="p-3 text-right">
+                        ${u.role !== 'owner' ? `
+                            <button onclick="toggleUserStatus('${u.id}')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs border border-slate-700">
+                                ${u.status === 'suspended' ? 'Reactivate' : 'Suspend'}
+                            </button>
+                        ` : '<span class="text-xs text-slate-600">System Admin</span>'}
+                    </td>
+                `;
+                usersTbody.appendChild(tr);
+            });
+        }
+
+        function approveUser(userId, status) {
+            const user = appData.users.find(u => u.id === userId);
+            if (user) {
+                user.status = status;
+                saveStore();
+                showToast(`User ${user.name} has been ${status}.`, 'success');
+                renderOwnerDashboard();
+            }
+        }
+
+        function toggleUserStatus(userId) {
+            const user = appData.users.find(u => u.id === userId);
+            if (user) {
+                user.status = user.status === 'suspended' ? 'approved' : 'suspended';
+                saveStore();
+                showToast(`User status changed to ${user.status}.`, 'info');
+                renderOwnerDashboard();
+            }
+        }
+
+        /* TEACHER DASHBOARD LOGIC */
+        function renderTeacherDashboard() {
+            const teacherClasses = appData.classes.filter(c => c.teacherId === currentUser.id);
+            const classGrid = document.getElementById('teacher-classes-grid');
+            const selectClass = document.getElementById('teacher-live-select-class');
+
+            classGrid.innerHTML = '';
+            selectClass.innerHTML = '';
+
+            if (teacherClasses.length === 0) {
+                classGrid.innerHTML = `<div class="col-span-2 p-6 glass-card rounded-2xl text-center text-slate-500">No active classes created yet. Click "Create New Class" above!</div>`;
+            } else {
+                teacherClasses.forEach(c => {
+                    const card = document.createElement('div');
+                    card.className = "glass-card p-5 rounded-2xl border border-slate-800 space-y-3";
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 font-mono text-xs font-bold rounded-lg border border-cyan-500/20">${c.code}</span>
+                            <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> ${c.students.length} Enrolled</span>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-white text-base">${c.name}</h3>
+                            <p class="text-xs text-slate-400">${c.subject}</p>
+                        </div>
+                    `;
+                    classGrid.appendChild(card);
+
+                    // Add options to live selector
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.innerText = `${c.name} (${c.code})`;
+                    selectClass.appendChild(opt);
+                });
+            }
+
+            // Render Teacher Exams & Live Analytics
+            const examsList = document.getElementById('teacher-exams-list');
+            examsList.innerHTML = '';
+
+            const teacherExams = appData.exams.filter(e => teacherClasses.some(tc => tc.id === e.classId));
+
+            if (teacherExams.length === 0) {
+                examsList.innerHTML = `<div class="p-6 glass-card rounded-2xl text-center text-slate-500">No exams created yet.</div>`;
+            } else {
+                teacherExams.forEach(e => {
+                    const targetClass = teacherClasses.find(c => c.id === e.classId);
+                    const examSubs = appData.submissions.filter(s => s.examId === e.id);
+                    const scores = examSubs.map(s => s.score);
+                    const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : 'N/A';
+
+                    const card = document.createElement('div');
+                    card.className = "glass-card p-5 rounded-2xl border border-slate-800 space-y-4";
+                    card.innerHTML = `
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                            <div>
+                                <h3 class="font-bold text-white text-lg">${e.title}</h3>
+                                <div class="text-xs text-slate-400">Class: ${targetClass?.name || 'Class'} | Time: ${e.timeLimit} mins | Questions: ${e.questions.length}</div>
+                            </div>
+                            <div class="flex items-center space-x-3 text-xs">
+                                <div class="bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">Submissions: <b class="text-emerald-400">${examSubs.length}</b></div>
+                                <div class="bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">Average Score: <b class="text-cyan-400">${avgScore} pts</b></div>
+                            </div>
+                        </div>
+
+                        <!-- Submissions Itemization Table -->
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs text-slate-300">
+                                <thead class="bg-slate-900/60 text-slate-400">
+                                    <tr>
+                                        <th class="p-2">Student</th>
+                                        <th class="p-2">Score / Total</th>
+                                        <th class="p-2">Completed At</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800/40">
+                                    ${examSubs.length === 0 ? '<tr><td colspan="3" class="p-2 text-slate-500 italic">No submissions yet.</td></tr>' : 
+                                        examSubs.map(sub => {
+                                            const st = appData.users.find(u => u.id === sub.studentId);
+                                            return `
+                                                <tr>
+                                                    <td class="p-2 font-medium text-white">${st?.name || 'Student'}</td>
+                                                    <td class="p-2 font-bold text-emerald-400">${sub.score} pts</td>
+                                                    <td class="p-2 text-slate-500">${new Date(sub.submittedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    examsList.appendChild(card);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function handleCreateClass(e) {
+            e.preventDefault();
+            const name = document.getElementById('class-name').value.trim();
+            const subject = document.getElementById('class-subject').value.trim();
+            const code = (name.substring(0, 3) + '-' + Math.floor(100 + Math.random() * 900)).toUpperCase();
+
+            const newClass = {
+                id: 'c_' + Date.now(),
+                name,
+                subject,
+                code,
+                teacherId: currentUser.id,
+                students: []
+            };
+
+            appData.classes.push(newClass);
+            saveStore();
+            closeModal('modal-create-class');
+            showToast(`Class "${name}" created! Join Code: ${code}`, 'success');
+            renderTeacherDashboard();
+        }
+
+        let questionItems = [];
+
+        function addQuestionItem() {
+            const container = document.getElementById('questions-builder-container');
+            const qIndex = questionItems.length;
+            questionItems.push({ type: 'mcq' });
+
+            const item = document.createElement('div');
+            item.className = "bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-3";
+            item.id = `q-builder-${qIndex}`;
+            item.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-cyan-400 uppercase">Question #${qIndex + 1}</span>
+                    <button type="button" onclick="removeQuestionItem(${qIndex})" class="text-xs text-rose-400 hover:text-rose-300">Remove</button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs text-slate-400 mb-1">Question Title</label>
+                        <input type="text" id="q-title-${qIndex}" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100" placeholder="Enter question...">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Type</label>
+                        <select id="q-type-${qIndex}" onchange="toggleQType(${qIndex})" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100">
+                            <option value="mcq">Multiple Choice</option>
+                            <option value="fill">Fill-in-the-Blank</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- MCQ Options Container -->
+                <div id="q-mcq-box-${qIndex}" class="space-y-2">
+                    <label class="block text-xs text-slate-400">Options (Comma separated)</label>
+                    <input type="text" id="q-options-${qIndex}" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100" placeholder="Option A, Option B, Option C, Option D">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Correct Answer</label>
+                        <input type="text" id="q-answer-${qIndex}" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100" placeholder="Exact correct answer text">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Points</label>
+                        <input type="number" id="q-points-${qIndex}" value="5" min="1" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-100">
+                    </div>
+                </div>
+            `;
+            container.appendChild(item);
+        }
+
+        function toggleQType(index) {
+            const type = document.getElementById(`q-type-${index}`).value;
+            const mcqBox = document.getElementById(`q-mcq-box-${index}`);
+            if (type === 'fill') {
+                mcqBox.classList.add('hidden');
+            } else {
+                mcqBox.classList.remove('hidden');
+            }
+        }
+
+        function removeQuestionItem(index) {
+            document.getElementById(`q-builder-${index}`)?.remove();
+        }
+
+        function handleSaveExam(e) {
+            e.preventDefault();
+            const classId = document.getElementById('exam-class-select').value;
+            const title = document.getElementById('exam-title').value.trim();
+            const timeLimit = parseInt(document.getElementById('exam-time-limit').value);
+
+            const questions = [];
+            questionItems.forEach((_, idx) => {
+                const elTitle = document.getElementById(`q-title-${idx}`);
+                if (elTitle) {
+                    const qType = document.getElementById(`q-type-${idx}`).value;
+                    const qAnswer = document.getElementById(`q-answer-${idx}`).value.trim();
+                    const qPoints = parseInt(document.getElementById(`q-points-${idx}`).value);
+
+                    let opts = [];
+                    if (qType === 'mcq') {
+                        const optsRaw = document.getElementById(`q-options-${idx}`).value;
+                        opts = optsRaw.split(',').map(o => o.trim()).filter(Boolean);
+                    }
+
+                    questions.push({
+                        id: 'q_' + Math.random().toString(36).substr(2, 5),
+                        type: qType,
+                        question: elTitle.value.trim(),
+                        options: opts,
+                        answer: qAnswer,
+                        points: qPoints
+                    });
+                }
+            });
+
+            if (questions.length === 0) {
+                showToast('Please add at least one question to the exam.', 'error');
+                return;
+            }
+
+            const newExam = {
+                id: 'e_' + Date.now(),
+                classId,
+                title,
+                timeLimit,
+                questions
+            };
+
+            appData.exams.push(newExam);
+            saveStore();
+            closeModal('modal-create-exam');
+            showToast('Interactive assessment published!', 'success');
+            renderTeacherDashboard();
+        }
+
+        /* STUDENT DASHBOARD & EXAM ENGINE LOGIC */
+        function renderStudentDashboard() {
+            const enrolledClasses = appData.classes.filter(c => c.students.includes(currentUser.id));
+            const studentGrid = document.getElementById('student-classes-grid');
+            studentGrid.innerHTML = '';
+
+            if (enrolledClasses.length === 0) {
+                studentGrid.innerHTML = `<div class="col-span-3 p-6 glass-card rounded-2xl text-center text-slate-500">You are not enrolled in any classes yet. Click "Join Class with Code" to get started!</div>`;
+            } else {
+                enrolledClasses.forEach(c => {
+                    const teacher = appData.users.find(u => u.id === c.teacherId);
+                    const card = document.createElement('div');
+                    card.className = "glass-card p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between";
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 font-mono text-xs font-bold rounded-lg border border-cyan-500/20">${c.code}</span>
+                            </div>
+                            <h3 class="font-bold text-white text-base">${c.name}</h3>
+                            <p class="text-xs text-slate-400 mb-3">${c.subject}</p>
+                            
+                            <!-- Teacher Directory Info -->
+                            <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800/80 flex items-center space-x-3 text-xs">
+                                <img src="${teacher?.schoolLogo || 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=100'}" class="w-8 h-8 rounded-lg object-cover bg-slate-800">
+                                <div>
+                                    <div class="font-bold text-slate-200">${teacher?.name || 'Teacher'}</div>
+                                    <div class="text-slate-400 text-[11px]">${teacher?.schoolName || 'School'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="launchVirtualClassroom('student', '${c.id}')" class="w-full py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all">
+                            <i data-lucide="video" class="w-3.5 h-3.5"></i> Join Virtual Classroom
+                        </button>
+                    `;
+                    studentGrid.appendChild(card);
+                });
+            }
+
+            // Render Enrolled Assessments
+            const examsGrid = document.getElementById('student-exams-grid');
+            examsGrid.innerHTML = '';
+
+            const availableExams = appData.exams.filter(e => enrolledClasses.some(ec => ec.id === e.classId));
+
+            if (availableExams.length === 0) {
+                examsGrid.innerHTML = `<div class="col-span-3 p-6 glass-card rounded-2xl text-center text-slate-500">No active assessments available right now.</div>`;
+            } else {
+                availableExams.forEach(e => {
+                    const sub = appData.submissions.find(s => s.examId === e.id && s.studentId === currentUser.id);
+                    const targetClass = enrolledClasses.find(c => c.id === e.classId);
+
+                    const card = document.createElement('div');
+                    card.className = "glass-card p-5 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between";
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-slate-400">${targetClass?.name}</span>
+                                <span class="px-2 py-0.5 text-xs font-semibold rounded-full ${sub ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">
+                                    ${sub ? 'Completed' : 'Pending'}
+                                </span>
+                            </div>
+                            <h3 class="font-bold text-white text-base">${e.title}</h3>
+                            <p class="text-xs text-slate-400">Time Limit: ${e.timeLimit} mins | Total Questions: ${e.questions.length}</p>
+                        </div>
+
+                        ${sub ? `
+                            <div class="p-3 bg-emerald-950/40 border border-emerald-500/20 rounded-xl flex items-center justify-between">
+                                <span class="text-xs text-emerald-300 font-medium">Your Result:</span>
+                                <span class="text-sm font-bold text-emerald-400">${sub.score} Points</span>
+                            </div>
+                        ` : `
+                            <button onclick="startExamPlayer('${e.id}')" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/20 transition-all">
+                                <i data-lucide="play-circle" class="w-4 h-4"></i> Start Assessment Now
+                            </button>
+                        `}
+                    `;
+                    examsGrid.appendChild(card);
+                });
+            }
+            lucide.createIcons();
+        }
+
+        function handleJoinClass(e) {
+            e.preventDefault();
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+            const targetClass = appData.classes.find(c => c.code === code);
+
+            if (!targetClass) {
+                showToast('Invalid class code. Please check and try again.', 'error');
+                return;
+            }
+
+            if (targetClass.students.includes(currentUser.id)) {
+                showToast('You are already enrolled in this class.', 'info');
+                closeModal('modal-join-class');
+                return;
+            }
+
+            targetClass.students.push(currentUser.id);
+            saveStore();
+            closeModal('modal-join-class');
+            showToast(`Successfully enrolled in ${targetClass.name}!`, 'success');
+            renderStudentDashboard();
+            updateUserNav();
+        }
+
+        /* EXAM PLAYER ENGINE WITH COUNTDOWN TIMER & AUTO-GRADING */
+        function startExamPlayer(examId) {
+            const exam = appData.exams.find(e => e.id === examId);
+            if (!exam) return;
+
+            activeExamSession = {
+                exam,
+                answers: {},
+                timeLeftSec: exam.timeLimit * 60
+            };
+
+            document.getElementById('player-exam-title').innerText = exam.title;
+            const targetClass = appData.classes.find(c => c.id === exam.classId);
+            document.getElementById('player-exam-subject').innerText = targetClass?.name || 'Class Assessment';
+
+            renderExamQuestions();
+            document.getElementById('modal-exam-player').classList.remove('hidden');
+
+            // Timer Loop
+            clearInterval(examTimerInterval);
+            updateTimerDisplay();
+            examTimerInterval = setInterval(() => {
+                activeExamSession.timeLeftSec--;
+                updateTimerDisplay();
+
+                if (activeExamSession.timeLeftSec <= 0) {
+                    clearInterval(examTimerInterval);
+                    showToast('Time limit reached! Submitting answers automatically...', 'info');
+                    submitExamPlayer();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(activeExamSession.timeLeftSec / 60);
+            const secs = activeExamSession.timeLeftSec % 60;
+            document.getElementById('exam-timer-display').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function renderExamQuestions() {
+            const body = document.getElementById('exam-player-body');
+            body.innerHTML = '';
+
+            const exam = activeExamSession.exam;
+
+            exam.questions.forEach((q, idx) => {
+                const card = document.createElement('div');
+                card.className = "glass-card p-6 rounded-2xl border border-slate-800 space-y-4";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between text-xs font-semibold text-cyan-400">
+                        <span>QUESTION ${idx + 1} OF ${exam.questions.length}</span>
+                        <span>${q.points} Points</span>
+                    </div>
+                    <div class="text-base font-medium text-white">${q.question}</div>
+
+                    ${q.type === 'mcq' ? `
+                        <div class="space-y-2 pt-2">
+                            ${q.options.map((opt, oIdx) => `
+                                <label class="flex items-center p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-cyan-500/50 cursor-pointer transition-all">
+                                    <input type="radio" name="q_ans_${q.id}" value="${opt}" onchange="recordAnswer('${q.id}', '${opt}')" class="w-4 h-4 text-cyan-600 focus:ring-cyan-500 bg-slate-950 border-slate-700">
+                                    <span class="ml-3 text-sm text-slate-200">${opt}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="pt-2">
+                            <input type="text" oninput="recordAnswer('${q.id}', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500" placeholder="Type your answer here...">
+                        </div>
+                    `}
+                `;
+                body.appendChild(card);
+            });
+
+            // Submit Button
+            const submitBtn = document.createElement('button');
+            submitBtn.className = "w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-xl shadow-emerald-600/20 transition-all mt-6";
+            submitBtn.innerText = "Submit Assessment Paper";
+            submitBtn.onclick = submitExamPlayer;
+            body.appendChild(submitBtn);
+        }
+
+        function recordAnswer(qId, val) {
+            if (activeExamSession) {
+                activeExamSession.answers[qId] = val.trim();
+            }
+        }
+
+        function submitExamPlayer() {
+            clearInterval(examTimerInterval);
+            const exam = activeExamSession.exam;
+            let totalScore = 0;
+
+            // Auto Grading
+            exam.questions.forEach(q => {
+                const given = (activeExamSession.answers[q.id] || '').toLowerCase();
+                const correct = q.answer.trim().toLowerCase();
+                if (given === correct) {
+                    totalScore += q.points;
+                }
+            });
+
+            const submission = {
+                id: 'sub_' + Date.now(),
+                examId: exam.id,
+                studentId: currentUser.id,
+                score: totalScore,
+                submittedAt: new Date().toISOString()
+            };
+
+            appData.submissions.push(submission);
+            saveStore();
+
+            // Render Score Result Modal
+            const body = document.getElementById('exam-player-body');
+            body.innerHTML = `
+                <div class="glass-card p-8 rounded-2xl text-center space-y-4 border border-emerald-500/30">
+                    <div class="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+                        <i data-lucide="check-circle-2" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white">Assessment Submitted!</h2>
+                    <p class="text-slate-400 text-sm">Your answers have been graded automatically.</p>
+                    <div class="text-4xl font-extrabold text-emerald-400 py-2">${totalScore} Points</div>
+                    <button onclick="closeExamPlayer()" class="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl text-sm border border-slate-700">Return to Dashboard</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function closeExamPlayer() {
+            document.getElementById('modal-exam-player').classList.add('hidden');
+            renderStudentDashboard();
+        }
+
+        /* VIRTUAL CLASSROOM LAUNCHER & REALTIME SIMULATION */
+        function launchVirtualClassroom(role, classId = null) {
+            const modal = document.getElementById('modal-virtual-room');
+            modal.classList.remove('hidden');
+
+            const chatMessages = document.getElementById('class-chat-messages');
+            chatMessages.innerHTML = `
+                <div class="text-slate-500 italic text-[11px] text-center my-2">System: Encrypted WebRTC Session Active.</div>
+                <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800"><b class="text-cyan-400">Teacher:</b> Welcome to live class session! Raise your hand if you have questions.</div>
+            `;
+
+            lucide.createIcons();
+        }
+
+        function exitVirtualClassroom() {
+            document.getElementById('modal-virtual-room').classList.add('hidden');
+        }
+
+        function toggleClassMic() {
+            const btn = document.getElementById('btn-toggle-mic');
+            btn.classList.toggle('bg-rose-600/20');
+            btn.classList.toggle('text-rose-400');
+            showToast('Microphone toggled', 'info');
+        }
+
+        function toggleClassCam() {
+            const btn = document.getElementById('btn-toggle-cam');
+            btn.classList.toggle('bg-rose-600/20');
+            btn.classList.toggle('text-rose-400');
+            showToast('Camera toggled', 'info');
+        }
+
+        function raiseClassHand() {
+            const badge = document.getElementById('hand-raised-badge');
+            badge.classList.toggle('hidden');
+            showToast('Hand raised to teacher', 'success');
+        }
+
+        function sendClassChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('class-chat-input');
+            const val = input.value.trim();
+            if (!val) return;
+
+            const chatMessages = document.getElementById('class-chat-messages');
+            const msg = document.createElement('div');
+            msg.className = "bg-slate-900/80 p-2.5 rounded-xl border border-slate-800";
+            msg.innerHTML = `<b class="text-emerald-400">${currentUser?.name || 'User'}:</b> ${val}`;
+            chatMessages.appendChild(msg);
+            input.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        /* MODAL HELPERS & STARTUP INITIALIZATION */
+        function openModal(modalId) {
+            if (modalId === 'modal-create-exam') {
+                // Populate class select for teacher
+                const select = document.getElementById('exam-class-select');
+                select.innerHTML = '';
+                const teacherClasses = appData.classes.filter(c => c.teacherId === currentUser.id);
+                teacherClasses.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.innerText = c.name;
+                    select.appendChild(opt);
+                });
+
+                // Clear question items
+                document.getElementById('questions-builder-container').innerHTML = '';
+                questionItems = [];
+                addQuestionItem(); // Add default question item
+            }
+            document.getElementById(modalId)?.classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId)?.classList.add('hidden');
+        }
+
+        // Window Startup Initialization
+        window.onload = function() {
+            initStore();
+            updateUserNav();
+            switchTab('auth');
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
