@@ -1,9 +1,9 @@
-// Initialize Supabase Client
+// Updated Supabase Initialization:
 const SUPABASE_URL = 'https://ggiwmwinrcxrkqcevqnz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_SYYnHD1Ws3cz5lva25quxQ_ey7XgL4v';
 
-// Global Supabase Instance
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Rename the variable to 'supabaseClient' to avoid conflicting with the library
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Session State Helper
 const Session = {
