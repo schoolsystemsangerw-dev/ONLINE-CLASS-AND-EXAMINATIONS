@@ -93,6 +93,7 @@ function showRoleDashboard(role) {
     } else if (role === 'student') {
         const studentDb = document.getElementById('student-dashboard');
         if (studentDb) studentDb.classList.remove('hidden');
+        renderStudentDashboard();
     }
 }
 
@@ -246,6 +247,56 @@ function setupEventListeners() {
             renderTeacherDashboard();
         });
     }
+
+    // Join Classroom Handler (Student Action)
+    const joinClassForm = document.getElementById('join-class-form');
+    if (joinClassForm) {
+        joinClassForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Prevents page reload/jumping
+            
+            // Checks for both join-class-code and join-code to match HTML
+            const classCodeInput = document.getElementById('join-class-code') || document.getElementById('join-code');
+            const classCode = classCodeInput ? classCodeInput.value.trim().toUpperCase() : '';
+
+            if (!classCode) {
+                alert('Please enter a valid class code.');
+                return;
+            }
+
+            // 1. Verify class exists in Supabase
+            const { data: classData, error: classError } = await supabaseClient
+                .from('classes')
+                .select('*')
+                .eq('class_code', classCode)
+                .maybeSingle();
+
+            if (classError || !classData) {
+                alert('Invalid Class Code! Please check the code with your teacher.');
+                return;
+            }
+
+            // 2. Enroll student into class
+            const { error: enrollError } = await supabaseClient
+                .from('enrollments')
+                .insert([{
+                    student_email: currentUser.email,
+                    class_code: classCode
+                }]);
+
+            if (enrollError) {
+                if (enrollError.code === '23505') {
+                    alert('You have already joined this class!');
+                } else {
+                    alert('Failed to join class: ' + enrollError.message);
+                }
+                return;
+            }
+
+            alert(`Successfully joined ${classData.class_name}!`);
+            if (classCodeInput) classCodeInput.value = '';
+            renderStudentDashboard();
+        });
+    }
 }
 
 // Render System Owner Dashboard
@@ -307,6 +358,42 @@ async function renderTeacherDashboard() {
         container.innerHTML = `<p class="text-xs text-slate-500 italic py-4 text-center col-span-2">No classes created yet. Fill out the form on the left to create your first class.</p>`;
         return;
     }
+
+    container.innerHTML = classes.map(c => `
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80">
+            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+            <p class="text-xs text-slate-400 mb-3">${c.subject}</p>
+            <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
+                <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Render Student Enrolled Classes
+async function renderStudentDashboard() {
+    const container = document.getElementById('student-classes-cards');
+    if (!container) return;
+
+    const { data: enrollments, error: enrollError } = await supabaseClient
+        .from('enrollments')
+        .select('class_code')
+        .eq('student_email', currentUser?.email);
+
+    if (enrollError || !enrollments || enrollments.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500 italic py-4 text-center col-span-2">You haven't joined any classes yet. Enter a code above to get started.</p>`;
+        return;
+    }
+
+    const classCodes = enrollments.map(e => e.class_code);
+
+    const { data: classes, error: classError } = await supabaseClient
+        .from('classes')
+        .select('*')
+        .in('class_code', classCodes);
+
+    if (classError || !classes) return;
 
     container.innerHTML = classes.map(c => `
         <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80">
