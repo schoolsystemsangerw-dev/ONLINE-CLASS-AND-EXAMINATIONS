@@ -576,3 +576,152 @@ window.closeLiveStream = function() {
     if (container) container.innerHTML = '';
     if (modal) modal.classList.add('hidden');
 };
+
+// Render Teacher Active Classes with "Create / Load Exam" and "View Results" Buttons
+window.renderTeacherClasses = async function() {
+    const container = document.getElementById('teacher-classes-cards');
+    if (!container) return;
+
+    const { data: classes, error } = await supabaseClient
+        .from('classes')
+        .select('*')
+        .eq('teacher_email', currentUser.email);
+
+    if (error || !classes || classes.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 col-span-2">No active classes found. Create one above!</p>`;
+        return;
+    }
+
+    // Fetch existing exams for this teacher to render "View Results" buttons
+    const { data: exams } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .eq('teacher_email', currentUser.email);
+
+    container.innerHTML = classes.map(c => {
+        const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
+
+        return `
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-white text-base">${c.name}</h4>
+                        <span class="px-2.5 py-1 bg-indigo-950 text-indigo-300 border border-indigo-800 rounded-lg text-xs font-mono font-bold">${c.class_code}</span>
+                    </div>
+                    <p class="text-xs text-slate-400">${c.subject}</p>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-900">
+                    <!-- Button to Set / Create New Exam -->
+                    <button onclick="window.openCreateExamModal('${c.class_code}')" 
+                            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i> Create / Load Exam
+                    </button>
+
+                    <!-- Render buttons to view scores for existing exams in this class -->
+                    ${classExams.map(ex => `
+                        <button onclick="window.viewExamResults(${ex.id})" 
+                                class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-semibold rounded-xl text-[11px] transition flex items-center justify-between px-3">
+                            <span class="truncate">📊 ${ex.title} Results</span>
+                            <span class="text-indigo-400 font-bold">View Marks</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+};
+
+// Render Student Dashboard Cards with "Take Exam" & Result Cards
+window.renderStudentClasses = async function() {
+    const container = document.getElementById('student-classes-cards');
+    if (!container) return;
+
+    // Fetch student enrolments
+    const { data: enrollments, error } = await supabaseClient
+        .from('enrollments')
+        .select('class_code')
+        .eq('student_email', currentUser.email);
+
+    if (error || !enrollments || enrollments.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 col-span-full text-center">You have not joined any classes yet. Use the code above to join!</p>`;
+        return;
+    }
+
+    const classCodes = enrollments.map(e => e.class_code);
+
+    // Fetch classes and active exams
+    const { data: classes } = await supabaseClient
+        .from('classes')
+        .select('*')
+        .in('class_code', classCodes);
+
+    const { data: exams } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .in('class_code', classCodes);
+
+    // Fetch student's submitted exams
+    const { data: submissions } = await supabaseClient
+        .from('submissions')
+        .select('*')
+        .eq('student_email', currentUser.email);
+
+    container.innerHTML = classes.map(c => {
+        const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
+
+        return `
+            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+                <div>
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-bold text-white text-base">${c.name}</h4>
+                        <span class="px-2 py-1 bg-slate-900 text-slate-400 border border-slate-800 rounded-lg text-[10px] font-mono">${c.class_code}</span>
+                    </div>
+                    <p class="text-xs text-slate-400">${c.subject}</p>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-900">
+                    <h5 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Class Exams</h5>
+                    
+                    ${classExams.length === 0 ? `<p class="text-[11px] text-slate-500 italic">No exams published yet.</p>` : ''}
+
+                    ${classExams.map(ex => {
+                        const sub = submissions ? submissions.find(s => s.exam_id === ex.id) : null;
+
+                        if (sub) {
+                            // If exam is completed, display score
+                            return `
+                                <div class="flex justify-between items-center bg-emerald-950/40 border border-emerald-800/60 p-2.5 rounded-xl text-xs">
+                                    <div>
+                                        <p class="font-bold text-emerald-300">${ex.title}</p>
+                                        <p class="text-[10px] text-emerald-400">Completed</p>
+                                    </div>
+                                    <span class="px-2.5 py-1 bg-emerald-900 text-emerald-200 font-bold rounded-lg text-xs">
+                                        ${sub.score_obtained} / ${sub.total_marks} (${sub.percentage}%)
+                                    </span>
+                                </div>
+                            `;
+                        } else {
+                            // If exam is not completed, show "Take Exam" button
+                            return `
+                                <button onclick="window.openStudentExam(${ex.id})" 
+                                        class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-between px-3 shadow-md">
+                                    <span class="flex items-center gap-1.5">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i> ${ex.title}
+                                    </span>
+                                    <span class="bg-emerald-950/80 px-2 py-0.5 rounded text-[10px] text-emerald-200 border border-emerald-700">
+                                        ⏱️ ${ex.duration_minutes}m \vert{}${ex.total_marks} pts
+                                    </span>
+                                </button>
+                            `;
+                        }
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (window.lucide) lucide.createIcons();
+};
