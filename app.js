@@ -712,7 +712,7 @@ window.renderStudentClasses = async function() {
                                         <i data-lucide="edit-3" class="w-4 h-4"></i> ${ex.title}
                                     </span>
                                     <span class="bg-emerald-950/80 px-2 py-0.5 rounded text-[10px] text-emerald-200 border border-emerald-700">
-                                        ⏱️ ${ex.duration_minutes}m \vert{}${ex.total_marks} pts
+                                        ⏱️ ${ex.duration_minutes}m|vert{}${ex.total_marks} pts
                                     </span>
                                 </button>
                             `;
@@ -724,4 +724,54 @@ window.renderStudentClasses = async function() {
     }).join('');
 
     if (window.lucide) lucide.createIcons();
+};
+// Open Exam Creation Modal for Teachers
+window.openCreateExamModal = function(classCode) {
+    const modal = document.getElementById('exam-modal');
+    const title = document.getElementById('exam-modal-title');
+    const subtitle = document.getElementById('exam-modal-subtitle');
+    const body = document.getElementById('exam-modal-body');
+    const footer = document.getElementById('exam-modal-footer');
+
+    if (!modal) return;
+
+    title.innerText = "Create & Publish Class Exam";
+    subtitle.innerText = `Class Code: ${classCode}`;
+
+    body.innerHTML = `
+        <form id="create-exam-form" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">Exam Title</label>
+                <input type="text" id="exam-title" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white" placeholder="e.g. Unit 2 Grammar Quiz">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Duration (Minutes)</label>
+                    <input type="number" id="exam-duration" required value="30" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">Total Marks</label>
+                    <input type="number" id="exam-total-marks" required value="100" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">Exam Questions (One per line)</label>
+                <p class="text-[11px] text-slate-500 mb-2">Use {Answer} for fill-in answers or [Option A* | Option B] for multiple choice.</p>
+                <textarea id="exam-questions" rows="6" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono" placeholder="1. What is the capital of Rwanda? {Kigali}&#10;2. Water boils at [100°C* | 50°C | 0°C]."></textarea>
+            </div>
+        </form>
+    `;
+
+    footer.innerHTML = `
+        <button onclick="window.closeExamModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Cancel</button>
+        <button onclick="window.saveExam('${classCode}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg">Publish Exam</button>
+    `;
+
+    modal.classList.remove('hidden');
+};
+
+// Close Exam Modal
+window.closeExamModal = function() {
+    const modal = document.getElementById('exam-modal');
+    if (modal) modal.classList.add('hidden');
 };
