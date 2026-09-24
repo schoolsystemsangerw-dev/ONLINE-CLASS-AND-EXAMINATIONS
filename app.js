@@ -1,8 +1,7 @@
-// Updated Supabase Initialization:
+// Supabase Initialization
 const SUPABASE_URL = 'https://ggiwmwinrcxrkqcevqnz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_SYYnHD1Ws3cz5lva25quxQ_ey7XgL4v';
 
-// Rename the variable to 'supabaseClient' to avoid conflicting with the library
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Session State Helper
@@ -13,6 +12,10 @@ const Session = {
 };
 
 let currentUser = Session.getUser();
+let jitsiApi = null; // Master instance for Live Video Classes
+
+// Master Admin Access Control
+const MASTER_ADMIN_EMAIL = 'schoolsystems.ange.rw@gmail.com';
 
 // App Initialization
 document.addEventListener('DOMContentLoaded', () => {
@@ -31,8 +34,8 @@ async function checkSession() {
     const logoutBtn = document.getElementById('logout-btn');
 
     if (currentUser) {
-        // Re-verify status with Supabase DB
-        const { data: dbUser, error } = await supabaseClient
+        // Re-verify user record with Supabase DB
+        const { data: dbUser } = await supabaseClient
             .from('profiles')
             .select('*')
             .eq('email', currentUser.email)
@@ -47,7 +50,10 @@ async function checkSession() {
             userBadge.classList.remove('hidden');
             userBadge.classList.add('flex');
         }
-        if (authStatus) authStatus.textContent = `${currentUser.name} (${currentUser.role.toUpperCase()})`;
+        if (authStatus) {
+            const displayRole = currentUser.email.toLowerCase() === MASTER_ADMIN_EMAIL ? 'SYSTEM OWNER' : currentUser.role.toUpperCase();
+            authStatus.textContent = `${currentUser.name} (${displayRole})`;
+        }
         if (logoutBtn) logoutBtn.classList.remove('hidden');
 
         // Check teacher approval status
@@ -58,7 +64,12 @@ async function checkSession() {
             return;
         }
 
-        showRoleDashboard(currentUser.role);
+        // Handle Master Owner Routing
+        if (currentUser.email.toLowerCase() === MASTER_ADMIN_EMAIL) {
+            showRoleDashboard('owner');
+        } else {
+            showRoleDashboard(currentUser.role);
+        }
     } else {
         if (userBadge) userBadge.classList.add('hidden');
         if (logoutBtn) logoutBtn.classList.add('hidden');
@@ -66,7 +77,7 @@ async function checkSession() {
     }
 }
 
-// Section Navigation Controls
+// Navigation Controls
 function hideAllSections() {
     ['auth-section', 'owner-dashboard', 'teacher-dashboard', 'student-dashboard'].forEach(id => {
         const el = document.getElementById(id);
@@ -133,9 +144,9 @@ function setupAuthTabs() {
     }
 }
 
-// Form Action Handlers
+// Event Listeners & Form Handlers
 function setupEventListeners() {
-    // Account Registration (Supabase Insert)
+    // Registration Handler
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
@@ -159,13 +170,16 @@ function setupEventListeners() {
             }
 
             const newUser = {
-                role,
+                role: email.toLowerCase() === MASTER_ADMIN_EMAIL ? 'owner' : role,
                 name,
                 email,
                 phone,
                 password,
                 account_status: role === 'teacher' ? 'pending' : 'active',
                 school: role === 'teacher' ? (document.getElementById('reg-school')?.value || '') : '',
+                school_location: role === 'teacher' ? (document.getElementById('reg-school-location')?.value || '') : '',
+                position: role === 'teacher' ? (document.getElementById('reg-position')?.value || '') : '',
+                school_logo_url: role === 'teacher' ? (document.getElementById('reg-school-logo')?.value || '') : '',
                 payment_ref: role === 'teacher' ? (document.getElementById('reg-payment-ref')?.value || '') : ''
             };
 
@@ -186,7 +200,7 @@ function setupEventListeners() {
         });
     }
 
-    // Account Sign In (Supabase Query)
+    // Login Handler
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -211,7 +225,7 @@ function setupEventListeners() {
         });
     }
 
-    // Logout Action
+    // Logout Handler
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => {
@@ -220,7 +234,7 @@ function setupEventListeners() {
         });
     }
 
-    // Class Generator (Supabase Insert)
+    // Class Generator
     const createClassForm = document.getElementById('create-class-form');
     if (createClassForm) {
         createClassForm.addEventListener('submit', async (e) => {
@@ -248,13 +262,11 @@ function setupEventListeners() {
         });
     }
 
-    // Join Classroom Handler (Student Action)
+    // Student Join Class
     const joinClassForm = document.getElementById('join-class-form');
     if (joinClassForm) {
         joinClassForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Prevents page reload/jumping
-            
-            // Checks for both join-class-code and join-code to match HTML
+            e.preventDefault();
             const classCodeInput = document.getElementById('join-class-code') || document.getElementById('join-code');
             const classCode = classCodeInput ? classCodeInput.value.trim().toUpperCase() : '';
 
@@ -263,7 +275,6 @@ function setupEventListeners() {
                 return;
             }
 
-            // 1. Verify class exists in Supabase
             const { data: classData, error: classError } = await supabaseClient
                 .from('classes')
                 .select('*')
@@ -275,7 +286,6 @@ function setupEventListeners() {
                 return;
             }
 
-            // 2. Enroll student into class
             const { error: enrollError } = await supabaseClient
                 .from('enrollments')
                 .insert([{
@@ -299,7 +309,7 @@ function setupEventListeners() {
     }
 }
 
-// Render System Owner Dashboard
+// System Owner Dashboard
 async function renderOwnerDashboard() {
     const container = document.getElementById('owner-pending-list');
     if (!container) return;
@@ -315,13 +325,17 @@ async function renderOwnerDashboard() {
     }
 
     container.innerHTML = pendingTeachers.map(p => `
-        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80 flex justify-between items-center">
-            <div>
-                <h4 class="font-bold text-sm text-white">${p.name} (${p.school || 'Teacher'})</h4>
+        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                    ${p.school_logo_url ? `<img src="${p.school_logo_url}" class="w-6 h-6 rounded-full object-cover">` : ''}
+                    <h4 class="font-bold text-sm text-white">${p.name} (${p.position || 'Teacher'})</h4>
+                </div>
+                <p class="text-xs text-indigo-300 font-semibold">${p.school || 'Unspecified School'} ${p.school_location ? `• ${p.school_location}` : ''}</p>
                 <p class="text-xs text-slate-400">Phone: ${p.phone} | Email: ${p.email}</p>
-                <p class="text-xs font-bold text-amber-400 mt-1">MoMo Ref ID: ${p.payment_ref}</p>
+                <p class="text-xs font-bold text-amber-400">MoMo Ref ID: ${p.payment_ref || 'N/A'}</p>
             </div>
-            <button onclick="window.approveUser('${p.email}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-2 rounded-xl font-bold transition">
+            <button onclick="window.approveUser('${p.email}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition shadow-lg shadow-emerald-600/20">
                 Approve Payment
             </button>
         </div>
@@ -344,7 +358,7 @@ window.approveUser = async function(email) {
     alert(`Account approved successfully!`);
 };
 
-// Render Teacher Classes
+// Teacher Dashboard
 async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
     if (!container) return;
@@ -360,18 +374,25 @@ async function renderTeacherDashboard() {
     }
 
     container.innerHTML = classes.map(c => `
-        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80">
-            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-            <p class="text-xs text-slate-400 mb-3">${c.subject}</p>
+        <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-3">
+            <div>
+                <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+                <p class="text-xs text-slate-400">${c.subject}</p>
+            </div>
             <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                 <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
                 <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
             </div>
+            <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
+            </button>
         </div>
     `).join('');
+    
+    if (window.lucide) lucide.createIcons();
 }
 
-// Render Student Enrolled Classes
+// Student Dashboard
 async function renderStudentDashboard() {
     const container = document.getElementById('student-classes-cards');
     if (!container) return;
@@ -396,13 +417,69 @@ async function renderStudentDashboard() {
     if (classError || !classes) return;
 
     container.innerHTML = classes.map(c => `
-        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80">
-            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-            <p class="text-xs text-slate-400 mb-3">${c.subject}</p>
+        <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-3">
+            <div>
+                <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+                <p class="text-xs text-slate-400">${c.subject}</p>
+            </div>
             <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                 <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
                 <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
             </div>
+            <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                <i data-lucide="video" class="w-4 h-4"></i> Join Live Class
+            </button>
         </div>
     `).join('');
+
+    if (window.lucide) lucide.createIcons();
 }
+
+// Jitsi Video Classroom Engine
+window.startLiveStream = function(classCode, className) {
+    const modal = document.getElementById('live-stream-modal');
+    const title = document.getElementById('live-stream-title');
+    const container = document.getElementById('jitsi-container');
+
+    if (!modal || !container) return;
+
+    title.textContent = `Live Class: ${className} (${classCode})`;
+    modal.classList.remove('hidden');
+    container.innerHTML = '';
+
+    const domain = 'meet.jit.si';
+    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    const options = {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: container,
+        userInfo: {
+            displayName: currentUser ? currentUser.name : 'Guest User'
+        },
+        configOverwrite: {
+            startWithAudioMuted: true,
+            disableDeepLinking: true
+        },
+        interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false
+        }
+    };
+
+    jitsiApi = new JitsiMeetExternalAPI(domain, options);
+};
+
+// Close Live Stream Session
+window.closeLiveStream = function() {
+    const modal = document.getElementById('live-stream-modal');
+    const container = document.getElementById('jitsi-container');
+
+    if (jitsiApi) {
+        jitsiApi.dispose();
+        jitsiApi = null;
+    }
+
+    if (container) container.innerHTML = '';
+    if (modal) modal.classList.add('hidden');
+};
