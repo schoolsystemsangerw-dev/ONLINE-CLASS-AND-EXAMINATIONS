@@ -576,8 +576,7 @@ window.closeLiveStream = function() {
     if (container) container.innerHTML = '';
     if (modal) modal.classList.add('hidden');
 };
-
-// Render Teacher Active Classes with "Create / Load Exam" and "View Results" Buttons
+// Render Teacher Active Classes with School Details + Exam Buttons
 window.renderTeacherClasses = async function() {
     const container = document.getElementById('teacher-classes-cards');
     if (!container) return;
@@ -592,7 +591,7 @@ window.renderTeacherClasses = async function() {
         return;
     }
 
-    // Fetch existing exams for this teacher to render "View Results" buttons
+    // Fetch existing exams for this teacher
     const { data: exams } = await supabaseClient
         .from('exams')
         .select('*')
@@ -602,28 +601,51 @@ window.renderTeacherClasses = async function() {
         const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
 
         return `
-            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-xl">
                 <div>
-                    <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-bold text-white text-base">${c.name}</h4>
-                        <span class="px-2.5 py-1 bg-indigo-950 text-indigo-300 border border-indigo-800 rounded-lg text-xs font-mono font-bold">${c.class_code}</span>
+                    <!-- Header: Class Name & Subject -->
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h4 class="font-bold text-white text-lg">${c.name || 'Class'}</h4>
+                            <p class="text-xs text-slate-400 font-semibold">${c.subject || ''}</p>
+                        </div>
+                        <span class="px-2.5 py-1 bg-indigo-950 text-indigo-300 border border-indigo-800/80 rounded-lg text-xs font-mono font-bold">${c.class_code}</span>
                     </div>
-                    <p class="text-xs text-slate-400">${c.subject}</p>
+
+                    <!-- School & Teacher Information Box -->
+                    <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-xs space-y-1 text-slate-300">
+                        <p><span class="text-slate-500 font-semibold">School:</span> ${c.school_name || currentUser.school_name || 'HOPE ACADEMY N/P (NYAGATARE MUKAMA RUGARAMA)'}</p>
+                        <p><span class="text-slate-500 font-semibold">Teacher:</span> ${currentUser.full_name || 'MWESIGWA ANGE PEACE (Teacher)'}</p>
+                        <p><span class="text-slate-500 font-semibold">Phone:</span> ${currentUser.phone || '0794226003'}</p>
+                    </div>
                 </div>
 
-                <div class="space-y-2 pt-2 border-t border-slate-900">
-                    <!-- Button to Set / Create New Exam -->
-                    <button onclick="window.openCreateExamModal('${c.class_code}')" 
+                <!-- Class Code Display -->
+                <div class="bg-slate-950/50 border border-slate-800/60 p-2.5 rounded-xl text-center">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">CLASS CODE</p>
+                    <p class="text-xs font-mono font-bold text-indigo-400 tracking-wider">${c.class_code}</p>
+                </div>
+
+                <!-- Live Stream & Exam Action Buttons -->
+                <div class="space-y-2 pt-2 border-t border-slate-800/80">
+                    <!-- Live Stream Button -->
+                    <button onclick="window.startLiveStream('${c.class_code}', '${c.name}')" 
                             class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md">
+                        <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
+                    </button>
+
+                    <!-- Create / Load Exam Button -->
+                    <button onclick="window.openCreateExamModal('${c.class_code}')" 
+                            class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md">
                         <i data-lucide="file-plus" class="w-4 h-4"></i> Create / Load Exam
                     </button>
 
-                    <!-- Render buttons to view scores for existing exams in this class -->
+                    <!-- Published Exam Results Buttons -->
                     ${classExams.map(ex => `
                         <button onclick="window.viewExamResults(${ex.id})" 
                                 class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-semibold rounded-xl text-[11px] transition flex items-center justify-between px-3">
                             <span class="truncate">📊 ${ex.title} Results</span>
-                            <span class="text-indigo-400 font-bold">View Marks</span>
+                            <span class="text-emerald-400 font-bold">View Marks</span>
                         </button>
                     `).join('')}
                 </div>
