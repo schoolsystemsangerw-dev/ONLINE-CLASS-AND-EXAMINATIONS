@@ -1102,7 +1102,7 @@ window.startLiveStream = function(classCode, className) {
     modal.classList.remove('hidden');
     container.innerHTML = '';
 
-    const domain = 'meet.jit.si';
+   const domain = '8x8.vc';
     const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
 
     const options = {
@@ -1117,7 +1117,7 @@ window.startLiveStream = function(classCode, className) {
             // Audio & Video Policy:
             // Teacher starts unmuted/video-on; Students start with mic muted and camera forced off
             startWithAudioMuted: !isTeacher,
-            startWithVideoMuted: true, // Forces student cameras off
+            startWithVideoMuted: !isTeacher, // Unmutes teacher camera, keeps student camera off
             disableDeepLinking: true,   // Prevents forced app download popups on mobile phones
             mobileAppPromotionsEnabled: false,
 
