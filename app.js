@@ -380,8 +380,14 @@ async function renderTeacherDashboard() {
                     <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
                     <p class="text-xs text-slate-400">${c.subject}</p>
                 </div>
-                ${currentUser.school_logo_url ? `<img src="${currentUser.school_logo_url}" class="w-10 h-10 rounded-xl object-cover border border-slate-700 bg-slate-950 p-1 flex-shrink-0" alt="School Logo">` : ''}
-            </div>
+               ${currentUser.school_logo_url ? `
+                <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
+                    <img src="${currentUser.school_logo_url.includes('drive.google.com/file/d/') ? `https://lh3.googleusercontent.com/d/${currentUser.school_logo_url.split('/d/')[1].split('/')[0]}=s220` : currentUser.school_logo_url}" 
+                         alt="School Logo" 
+                         class="w-full h-full object-contain rounded-lg"
+                         onerror="this.onerror=null; this.parentElement.style.display='none';" />
+                </div>
+            ` : ''}
 
             <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
                 <p class="text-slate-300"><span class="text-slate-500">School:</span> ${currentUser.school || 'N/A'} ${currentUser.school_location ? `(${currentUser.school_location})` : ''}</p>
