@@ -980,12 +980,17 @@ window.submitStudentExam = async function(examId) {
     const scoreObtained = Math.round(correctCount * pointsPerQuestion);
     const percentage = Math.round((scoreObtained / exam.total_marks) * 100);
 
+    // Get student details safely
+    const studentEmail = currentUser?.email || 'student@smartedu.rw';
+    const studentName = currentUser?.name || currentUser?.full_name || 'Student';
+
     // Insert submission record into Supabase
     const { error: subError } = await supabaseClient
         .from('submissions')
         .insert([{
             exam_id: examId,
-            student_email: currentUser.email,
+            student_email: studentEmail,
+            student_name: studentName,
             score_obtained: scoreObtained,
             percentage: percentage,
             answers: JSON.stringify(studentAnswers)
