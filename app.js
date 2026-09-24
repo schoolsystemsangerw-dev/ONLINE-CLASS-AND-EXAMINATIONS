@@ -775,3 +775,13 @@ window.closeExamModal = function() {
     const modal = document.getElementById('exam-modal');
     if (modal) modal.classList.add('hidden');
 };
+// Global Auto-Re-render Fix
+window.addEventListener('DOMContentLoaded', () => {
+    if (window.currentUser) {
+        if (currentUser.role === 'teacher' && window.renderTeacherClasses) {
+            window.renderTeacherClasses();
+        } else if (currentUser.role === 'student' && window.renderStudentClasses) {
+            window.renderStudentClasses();
+        }
+    }
+});
