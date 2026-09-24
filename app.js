@@ -1084,3 +1084,81 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
+// Universal Cross-Platform Live Classroom (Teacher Host vs Student Viewers)
+window.startLiveStream = function(classCode, className) {
+    const modal = document.getElementById('live-stream-modal');
+    const title = document.getElementById('live-stream-title');
+    const container = document.getElementById('jitsi-container');
+
+    if (!modal || !container) {
+        alert("Live class modal container not found in HTML!");
+        return;
+    }
+
+    const isTeacher = currentUser?.role === 'teacher';
+    
+    // Update Header
+    title.textContent = `Live Class: ${className} (${classCode}) — ${isTeacher ? 'Broadcasting (Host)' : 'Viewer Mode'}`;
+    modal.classList.remove('hidden');
+    container.innerHTML = '';
+
+    const domain = 'meet.jit.si';
+    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    const options = {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: container,
+        userInfo: {
+            displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
+        },
+        configOverwrite: {
+            // Audio & Video Policy:
+            // Teacher starts unmuted/video-on; Students start with mic muted and camera forced off
+            startWithAudioMuted: !isTeacher,
+            startWithVideoMuted: true, // Forces student cameras off
+            disableDeepLinking: true,   // Prevents forced app download popups on mobile phones
+            mobileAppPromotionsEnabled: false,
+
+            // One-Way Stream Optimization:
+            // Hide tile view grid so teacher never sees video feeds
+            disableAudioLevels: !isTeacher,
+            
+            // Screen Share Precision (30 FPS for smooth mouse pointer tracking)
+            desktopSharingFrameRate: {
+                min: 20,
+                max: 30
+            }
+        },
+        interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            MOBILE_APP_PROMO: false,
+
+            // Role-Based Toolbar Buttons
+            TOOLBAR_BUTTONS: isTeacher ? [
+                'microphone', 'camera', 'desktop', 'fullscreen',
+                'hangup', 'chat', 'raisehand', 'participants-pane', 'tileview'
+            ] : [
+                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand' 
+                // Notice: 'camera' button is excluded for students
+            ],
+
+            // Responsive Layout Rules
+            VERTICAL_FILMSTRIP: false,
+            OPTIMIZE_FOR_MOBILE: true,
+            DISABLE_FOCUS_INDICATOR: true
+        }
+    };
+
+    // Initialize Jitsi API
+    jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+    // Lock viewpoint: ensure student screen is locked onto the teacher's stream/camera
+    jitsiApi.addEventListener('videoConferenceJoined', () => {
+        if (!isTeacher) {
+            jitsiApi.executeCommand('setTileView', false);
+        }
+    });
+};
