@@ -1004,3 +1004,83 @@ window.submitStudentExam = async function(examId) {
         if (typeof renderStudentDashboard === 'function') renderStudentDashboard();
     }
 };
+// Teacher View Exam Results Modal
+window.viewExamResults = async function(examId) {
+    const modal = document.getElementById('exam-modal');
+    const title = document.getElementById('exam-modal-title');
+    const subtitle = document.getElementById('exam-modal-subtitle');
+    const body = document.getElementById('exam-modal-body');
+    const footer = document.getElementById('exam-modal-footer');
+
+    if (!modal) return;
+
+    // Fetch exam details
+    const { data: exam, error: examError } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .eq('id', examId)
+        .single();
+
+    if (examError || !exam) {
+        alert("Could not load exam details.");
+        return;
+    }
+
+    // Fetch all student submissions for this exam
+    const { data: submissions, error: subError } = await supabaseClient
+        .from('submissions')
+        .select('*')
+        .eq('exam_id', examId)
+        .order('score_obtained', { ascending: false });
+
+    title.innerText = `Exam Results: ${exam.title}`;
+    subtitle.innerText = `Total Marks: ${exam.total_marks} | Total Submissions: ${submissions ? submissions.length : 0}`;
+
+    if (subError || !submissions || submissions.length === 0) {
+        body.innerHTML = `
+            <div class="text-center py-8 space-y-2">
+                <p class="text-slate-400 text-sm font-semibold">No submissions received yet.</p>
+                <p class="text-slate-500 text-xs">Student scores will appear here automatically once they complete the exam.</p>
+            </div>
+        `;
+    } else {
+        body.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-bold">
+                            <th class="py-3 px-3">Student Name</th>
+                            <th class="py-3 px-3">Email</th>
+                            <th class="py-3 px-3 text-center">Score</th>
+                            <th class="py-3 px-3 text-center">Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        ${submissions.map(sub => `
+                            <tr class="hover:bg-slate-950/50 transition">
+                                <td class="py-3 px-3 font-bold text-white">${sub.student_name || 'Student'}</td>
+                                <td class="py-3 px-3 text-slate-400 font-mono text-[11px]">${sub.student_email}</td>
+                                <td class="py-3 px-3 text-center font-mono font-bold text-indigo-300">${sub.score_obtained} /${exam.total_marks}</td>
+                                <td class="py-3 px-3 text-center">
+                                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                        sub.percentage >= 50 
+                                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' 
+                                            : 'bg-rose-950 text-rose-300 border border-rose-800'
+                                    }">
+                                        ${sub.percentage}%
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    footer.innerHTML = `
+        <button onclick="window.closeExamModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition">Close</button>
+    `;
+
+    modal.classList.remove('hidden');
+};
