@@ -926,3 +926,76 @@ window.openStudentExam = async function(examId) {
 
     modal.classList.remove('hidden');
 };
+// Student Auto-Grading Submission Handler
+window.submitStudentExam = async function(examId) {
+    const form = document.getElementById('student-exam-form');
+    if (!form) return;
+
+    // Fetch original exam details to get correct answer key
+    const { data: exam, error } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .eq('id', examId)
+        .single();
+
+    if (error || !exam) {
+        alert("Failed to evaluate exam. Please try again.");
+        return;
+    }
+
+    const lines = exam.questions.split('\n').filter(l => l.trim() !== '');
+    let totalQuestions = lines.length;
+    let correctCount = 0;
+    const studentAnswers = {};
+
+    lines.forEach((line, idx) => {
+        let expectedAnswer = "";
+        let studentAnswer = "";
+
+        // Determine correct answer & extract student response
+        if (line.includes('[') && line.includes(']')) {
+            const rawOptions = line.substring(line.indexOf('[') + 1, line.indexOf(']')).split('|');
+            const correctOpt = rawOptions.find(o => o.includes('*'));
+            if (correctOpt) expectedAnswer = correctOpt.replace('*', '').trim().toLowerCase();
+
+            const selectedRadio = form.querySelector(`input[name="q_${idx}"]:checked`);
+            if (selectedRadio) studentAnswer = selectedRadio.value.trim().toLowerCase();
+        } else if (line.includes('{') && line.includes('}')) {
+            const match = line.match(/\{([^}]+)\}/);
+            if (match) expectedAnswer = match[1].trim().toLowerCase();
+
+            const textInput = form.querySelector(`input[name="q_${idx}"]`);
+            if (textInput) studentAnswer = textInput.value.trim().toLowerCase();
+        }
+
+        studentAnswers[`q_${idx}`] = studentAnswer;
+
+        if (studentAnswer && expectedAnswer && studentAnswer === expectedAnswer) {
+            correctCount++;
+        }
+    });
+
+    // Calculate score
+    const pointsPerQuestion = exam.total_marks / (totalQuestions || 1);
+    const scoreObtained = Math.round(correctCount * pointsPerQuestion);
+    const percentage = Math.round((scoreObtained / exam.total_marks) * 100);
+
+    // Insert submission record into Supabase
+    const { error: subError } = await supabaseClient
+        .from('submissions')
+        .insert([{
+            exam_id: examId,
+            student_email: currentUser.email,
+            score_obtained: scoreObtained,
+            percentage: percentage,
+            answers: JSON.stringify(studentAnswers)
+        }]);
+
+    if (subError) {
+        alert("Error submitting exam: " + subError.message);
+    } else {
+        alert(`Exam submitted! You scored ${scoreObtained}/${exam.total_marks} (${percentage}%).`);
+        window.closeExamModal();
+        if (typeof renderStudentDashboard === 'function') renderStudentDashboard();
+    }
+};
