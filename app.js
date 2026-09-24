@@ -1084,7 +1084,7 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
-// Universal Cross-Platform Live Classroom (No Login Required)
+// Universal Cross-Platform Live Classroom (Full-Screen Teacher Display)
 window.startLiveStream = function(classCode, className) {
     const modal = document.getElementById('live-stream-modal');
     const title = document.getElementById('live-stream-title');
@@ -1097,12 +1097,10 @@ window.startLiveStream = function(classCode, className) {
 
     const isTeacher = currentUser?.role === 'teacher';
     
-    // Update Header
     title.textContent = `Live Class: ${className} (${classCode}) — ${isTeacher ? 'Broadcasting (Host)' : 'Viewer Mode'}`;
     modal.classList.remove('hidden');
     container.innerHTML = '';
 
-    // Public open-source domain without login popups
     const domain = 'meet.element.io';
     const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
 
@@ -1115,48 +1113,55 @@ window.startLiveStream = function(classCode, className) {
             displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
         },
         configOverwrite: {
-            // Teacher starts unmuted/video-on; Student starts with mic muted and camera forced off
             startWithAudioMuted: !isTeacher,
-            startWithVideoMuted: !isTeacher, // Teacher camera ON, student camera OFF
-            disableDeepLinking: true,        // Prevents app download popups on smartphones
+            startWithVideoMuted: !isTeacher, // Teacher camera ON, student camera OFF[cite: 4]
+            disableDeepLinking: true,        // Prevents app download popups on smartphones[cite: 4]
             mobileAppPromotionsEnabled: false,
 
-            // One-Way Stream Bandwidth Optimization
+            // One-Way Stream Bandwidth Optimization[cite: 4]
             disableAudioLevels: !isTeacher,
             
-            // Screen Share Precision (30 FPS for smooth pointer tracking)
+            // Screen Share Precision & Maximized Clarity[cite: 4]
             desktopSharingFrameRate: {
                 min: 20,
                 max: 30
-            }
+            },
+
+            // FORCE FULL SCREEN VIEWING (Hides all sidebars)
+            filmStripOnly: false,
+            disableSelfView: !isTeacher
         },
         interfaceConfigOverwrite: {
             SHOW_JITSI_WATERMARK: false,
             SHOW_WATERMARK_FOR_GUESTS: false,
             MOBILE_APP_PROMO: false,
 
-            // Toolbar configuration
+            // Toolbar configuration[cite: 4]
             TOOLBAR_BUTTONS: isTeacher ? [
                 'microphone', 'camera', 'desktop', 'fullscreen',
-                'hangup', 'chat', 'raisehand', 'participants-pane', 'tileview'
+                'hangup', 'chat', 'raisehand', 'participants-pane'
             ] : [
-                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
+                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand' //[cite: 4]
             ],
 
-            // Layout settings
+            // Force Shared Content to Fill 100% Window Width
             VERTICAL_FILMSTRIP: false,
+            HIDE_KICK_BACKGROUND_MEDIA: true,
             OPTIMIZE_FOR_MOBILE: true,
             DISABLE_FOCUS_INDICATOR: true
         }
     };
 
-    // Initialize Jitsi API
+    // Initialize Jitsi API[cite: 4]
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
 
-    // Lock viewpoint onto teacher's feed for students
+    // Lock viewpoint: ensure the shared screen/camera dominates 100% of the display[cite: 4]
     jitsiApi.addEventListener('videoConferenceJoined', () => {
-        if (!isTeacher) {
-            jitsiApi.executeCommand('setTileView', false);
-        }
+        jitsiApi.executeCommand('setTileView', false);
+    });
+
+    // Automatically maximize screen share whenever the teacher shares content
+    jitsiApi.addEventListener('largeVideoChanged', () => {
+        jitsiApi.executeCommand('setTileView', false);
     });
 };
