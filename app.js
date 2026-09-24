@@ -1084,7 +1084,7 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
-// Universal Cross-Platform Live Classroom (Teacher Host vs Student Viewers)
+// Universal Cross-Platform Live Classroom (No Login Required)
 window.startLiveStream = function(classCode, className) {
     const modal = document.getElementById('live-stream-modal');
     const title = document.getElementById('live-stream-title');
@@ -1102,7 +1102,8 @@ window.startLiveStream = function(classCode, className) {
     modal.classList.remove('hidden');
     container.innerHTML = '';
 
-   const domain = '8x8.vc';
+    // Public open-source domain without login popups
+    const domain = 'meet.element.io';
     const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
 
     const options = {
@@ -1114,18 +1115,16 @@ window.startLiveStream = function(classCode, className) {
             displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
         },
         configOverwrite: {
-            // Audio & Video Policy:
-            // Teacher starts unmuted/video-on; Students start with mic muted and camera forced off
+            // Teacher starts unmuted/video-on; Student starts with mic muted and camera forced off
             startWithAudioMuted: !isTeacher,
-            startWithVideoMuted: !isTeacher, // Unmutes teacher camera, keeps student camera off
-            disableDeepLinking: true,   // Prevents forced app download popups on mobile phones
+            startWithVideoMuted: !isTeacher, // Teacher camera ON, student camera OFF
+            disableDeepLinking: true,        // Prevents app download popups on smartphones
             mobileAppPromotionsEnabled: false,
 
-            // One-Way Stream Optimization:
-            // Hide tile view grid so teacher never sees video feeds
+            // One-Way Stream Bandwidth Optimization
             disableAudioLevels: !isTeacher,
             
-            // Screen Share Precision (30 FPS for smooth mouse pointer tracking)
+            // Screen Share Precision (30 FPS for smooth pointer tracking)
             desktopSharingFrameRate: {
                 min: 20,
                 max: 30
@@ -1136,16 +1135,15 @@ window.startLiveStream = function(classCode, className) {
             SHOW_WATERMARK_FOR_GUESTS: false,
             MOBILE_APP_PROMO: false,
 
-            // Role-Based Toolbar Buttons
+            // Toolbar configuration
             TOOLBAR_BUTTONS: isTeacher ? [
                 'microphone', 'camera', 'desktop', 'fullscreen',
                 'hangup', 'chat', 'raisehand', 'participants-pane', 'tileview'
             ] : [
-                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand' 
-                // Notice: 'camera' button is excluded for students
+                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
             ],
 
-            // Responsive Layout Rules
+            // Layout settings
             VERTICAL_FILMSTRIP: false,
             OPTIMIZE_FOR_MOBILE: true,
             DISABLE_FOCUS_INDICATOR: true
@@ -1155,7 +1153,7 @@ window.startLiveStream = function(classCode, className) {
     // Initialize Jitsi API
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
 
-    // Lock viewpoint: ensure student screen is locked onto the teacher's stream/camera
+    // Lock viewpoint onto teacher's feed for students
     jitsiApi.addEventListener('videoConferenceJoined', () => {
         if (!isTeacher) {
             jitsiApi.executeCommand('setTileView', false);
