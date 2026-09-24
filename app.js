@@ -326,16 +326,16 @@ async function renderOwnerDashboard() {
 
     container.innerHTML = pendingTeachers.map(p => `
         <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div class="space-y-1">
-                <div class="flex items-center gap-2">
-                    ${p.school_logo_url ? `<img src="${p.school_logo_url}" class="w-6 h-6 rounded-full object-cover">` : ''}
-                    <h4 class="font-bold text-sm text-white">${p.name} (${p.position || 'Teacher'})</h4>
+            <div class="flex items-start gap-3">
+                ${p.school_logo_url ? `<img src="${p.school_logo_url}" class="w-12 h-12 rounded-xl object-cover border border-slate-700 bg-slate-950 p-1 flex-shrink-0">` : ''}
+                <div class="space-y-1">
+                    <h4 class="font-bold text-sm text-white">${p.name} <span class="text-xs font-normal text-indigo-400">(${p.position || 'Teacher'})</span></h4>
+                    <p class="text-xs text-indigo-300 font-semibold">${p.school || 'Unspecified School'} ${p.school_location ? `• ${p.school_location}` : ''}</p>
+                    <p class="text-xs text-slate-400">Phone: <span class="text-slate-200 font-mono">${p.phone || 'N/A'}</span> | Email: ${p.email}</p>
+                    <p class="text-xs font-bold text-amber-400">MoMo Ref ID: ${p.payment_ref || 'N/A'}</p>
                 </div>
-                <p class="text-xs text-indigo-300 font-semibold">${p.school || 'Unspecified School'} ${p.school_location ? `• ${p.school_location}` : ''}</p>
-                <p class="text-xs text-slate-400">Phone: ${p.phone} | Email: ${p.email}</p>
-                <p class="text-xs font-bold text-amber-400">MoMo Ref ID: ${p.payment_ref || 'N/A'}</p>
             </div>
-            <button onclick="window.approveUser('${p.email}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition shadow-lg shadow-emerald-600/20">
+            <button onclick="window.approveUser('${p.email}')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition shadow-lg shadow-emerald-600/20 self-end md:self-center">
                 Approve Payment
             </button>
         </div>
@@ -374,15 +374,26 @@ async function renderTeacherDashboard() {
     }
 
     container.innerHTML = classes.map(c => `
-        <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-3">
-            <div>
-                <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-                <p class="text-xs text-slate-400">${c.subject}</p>
+        <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-4">
+            <div class="flex items-start justify-between gap-3">
+                <div class="space-y-1">
+                    <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+                    <p class="text-xs text-slate-400">${c.subject}</p>
+                </div>
+                ${currentUser.school_logo_url ? `<img src="${currentUser.school_logo_url}" class="w-10 h-10 rounded-xl object-cover border border-slate-700 bg-slate-950 p-1 flex-shrink-0" alt="School Logo">` : ''}
             </div>
+
+            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
+                <p class="text-slate-300"><span class="text-slate-500">School:</span> ${currentUser.school || 'N/A'} ${currentUser.school_location ? `(${currentUser.school_location})` : ''}</p>
+                <p class="text-slate-300"><span class="text-slate-500">Teacher:</span> ${currentUser.name} (${currentUser.position || 'Teacher'})</p>
+                <p class="text-slate-300"><span class="text-slate-500">Phone:</span> <span class="font-mono text-indigo-300">${currentUser.phone || 'N/A'}</span></p>
+            </div>
+
             <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                 <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
                 <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
             </div>
+
             <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
                 <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
             </button>
@@ -414,23 +425,52 @@ async function renderStudentDashboard() {
         .select('*')
         .in('class_code', classCodes);
 
-    if (classError || !classes) return;
+    if (classError || !classes || classes.length === 0) return;
 
-    container.innerHTML = classes.map(c => `
-        <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-3">
-            <div>
-                <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-                <p class="text-xs text-slate-400">${c.subject}</p>
+    // Fetch teacher profile details for these classes
+    const teacherEmails = [...new Set(classes.map(c => c.teacher_email))];
+    const { data: teacherProfiles } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .in('email', teacherEmails);
+
+    const teacherMap = {};
+    if (teacherProfiles) {
+        teacherProfiles.forEach(t => {
+            teacherMap[t.email] = t;
+        });
+    }
+
+    container.innerHTML = classes.map(c => {
+        const teacher = teacherMap[c.teacher_email] || {};
+        return `
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-4">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="space-y-1">
+                        <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+                        <p class="text-xs text-slate-400">${c.subject}</p>
+                    </div>
+                    ${teacher.school_logo_url ? `<img src="${teacher.school_logo_url}" class="w-10 h-10 rounded-xl object-cover border border-slate-700 bg-slate-950 p-1 flex-shrink-0" alt="School Logo">` : ''}
+                </div>
+
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
+                    <p class="text-slate-300"><span class="text-slate-500">School:</span> ${teacher.school || 'N/A'} ${teacher.school_location ? `(${teacher.school_location})` : ''}</p>
+                    <p class="text-slate-300"><span class="text-slate-500">Teacher:</span> ${teacher.name || 'N/A'} ${teacher.position ? `(${teacher.position})` : ''}</p>
+                    <p class="text-slate-300"><span class="text-slate-500">Phone:</span> <span class="font-mono text-indigo-300">${teacher.phone || 'N/A'}</span></p>
+                    <p class="text-slate-300"><span class="text-slate-500">Email:</span> ${teacher.email || c.teacher_email}</p>
+                </div>
+
+                <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
+                    <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
+                </div>
+
+                <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                    <i data-lucide="video" class="w-4 h-4"></i> Join Live Class
+                </button>
             </div>
-            <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
-                <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
-            </div>
-            <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
-                <i data-lucide="video" class="w-4 h-4"></i> Join Live Class
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 
     if (window.lucide) lucide.createIcons();
 }
