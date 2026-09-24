@@ -248,6 +248,109 @@ function setupEventListeners() {
 
             Session.setUser(user);
             checkSession();
+            // Global Jitsi API Instance Variable
+let jitsiApi = null;
+
+// Universal Cross-Platform Live Classroom
+window.startLiveStream = function(classCode, className) {
+    const modal = document.getElementById('live-stream-modal');
+    const title = document.getElementById('live-stream-title');
+    const container = document.getElementById('jitsi-container');
+
+    if (!modal || !container) {
+        alert("Live class modal container not found in HTML!");
+        return;
+    }
+
+    const isTeacher = currentUser?.role === 'teacher';
+    
+    title.textContent = `Live Class: ${className} (${classCode}) — ${isTeacher ? 'Broadcasting (Host)' : 'Viewer Mode'}`;
+    modal.classList.remove('hidden');
+    container.innerHTML = '';
+
+    const domain = 'meet.element.io';
+    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    const options = {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: container,
+        userInfo: {
+            displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
+        },
+        configOverwrite: {
+            // Bypass pre-join lobby screen so stream starts immediately
+            prejoinPageEnabled: false,
+            
+            startWithAudioMuted: !isTeacher,
+            startWithVideoMuted: !isTeacher,
+            disableDeepLinking: true,
+            mobileAppPromotionsEnabled: false,
+
+            disableAudioLevels: !isTeacher,
+            
+            desktopSharingFrameRate: {
+                min: 20,
+                max: 30
+            },
+
+            filmStripOnly: false,
+            disableSelfView: !isTeacher
+        },
+        interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            MOBILE_APP_PROMO: false,
+
+            TOOLBAR_BUTTONS: isTeacher ? [
+                'microphone', 'camera', 'desktop', 'fullscreen',
+                'hangup', 'chat', 'raisehand', 'participants-pane'
+            ] : [
+                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
+            ],
+
+            VERTICAL_FILMSTRIP: false,
+            HIDE_KICK_BACKGROUND_MEDIA: true,
+            OPTIMIZE_FOR_MOBILE: true,
+            DISABLE_FOCUS_INDICATOR: true
+        }
+    };
+
+    // Initialize Jitsi API
+    jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+    // Auto-close modal when teacher or student hangs up inside Jitsi UI
+    jitsiApi.addEventListener('videoConferenceLeft', () => {
+        window.closeLiveStream();
+    });
+
+    jitsiApi.addEventListener('videoConferenceJoined', () => {
+        jitsiApi.executeCommand('setTileView', false);
+    });
+
+    jitsiApi.addEventListener('largeVideoChanged', () => {
+        jitsiApi.executeCommand('setTileView', false);
+    });
+};
+
+// Function to Safely Close and Destroy the Stream (Fixes Console Error)
+window.closeLiveStream = function() {
+    if (jitsiApi) {
+        try {
+            jitsiApi.dispose();
+        } catch (e) {
+            console.warn("Jitsi cleanup warning:", e);
+        }
+        jitsiApi = null;
+    }
+    
+    const container = document.getElementById('jitsi-container');
+    if (container) container.innerHTML = '';
+
+    const modal = document.getElementById('live-stream-modal');
+    if (modal) modal.classList.add('hidden');
+};
         });
     }
 
