@@ -256,6 +256,33 @@
         <div id="jitsi-container" class="w-full flex-1 rounded-2xl overflow-hidden bg-slate-900 border border-slate-800"></div>
     </div>
 
+    <!-- INTERACTIVE AUTO-GRADED EXAM MODAL -->
+    <div id="exam-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            
+            <!-- Modal Header -->
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+                <div>
+                    <h3 id="exam-modal-title" class="font-bold text-white text-base">Assessment Engine</h3>
+                    <p id="exam-modal-subtitle" class="text-xs text-slate-400">Complete the questions directly on screen</p>
+                </div>
+                <button onclick="window.closeExamModal()" class="text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Dynamic Content Body (Exam Questions & Live Timer Injected Here) -->
+            <div id="exam-modal-body" class="p-6 overflow-y-auto space-y-6 flex-1 text-slate-200 text-sm">
+                <!-- Dynamic Form or Exam Content Injected Here -->
+            </div>
+
+            <!-- Action Footer -->
+            <div id="exam-modal-footer" class="p-4 border-t border-slate-800 flex justify-end gap-3 bg-slate-950/50">
+                <!-- Dynamic Buttons Injected Here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Connect JavaScript application script -->
     <script src="app.js"></script>
 </body>
