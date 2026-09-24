@@ -393,8 +393,7 @@ window.approveUser = async function(email) {
     renderOwnerDashboard();
     alert(`Account approved successfully!`);
 };
-
-// Teacher Dashboard
+// Teacher Dashboard (with Exam Creation & Results Tracking)
 async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
     if (!container) return;
@@ -409,46 +408,72 @@ async function renderTeacherDashboard() {
         return;
     }
 
-    const logoUrl = getDirectImageUrl(currentUser?.school_logo_url);
+    // Fetch active exams for this teacher
+    const { data: exams } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .eq('teacher_email', currentUser?.email);
 
-    container.innerHTML = classes.map(c => `
-        <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-4">
-            <div class="flex items-start justify-between gap-3">
-                <div class="space-y-1">
-                    <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-                    <p class="text-xs text-slate-400">${c.subject}</p>
-                </div>
-                ${logoUrl ? `
-                    <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
-                        <img src="${logoUrl}" 
-                             alt="School Logo" 
-                             class="w-full h-full object-contain rounded-lg"
-                             onerror="this.onerror=null; this.parentElement.style.display='none';" />
+    const logoUrl = typeof getDirectImageUrl === 'function' ? getDirectImageUrl(currentUser?.school_logo_url) : null;
+
+    container.innerHTML = classes.map(c => {
+        const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
+
+        return `
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-4 shadow-xl flex flex-col justify-between">
+                <div class="space-y-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+                            <p class="text-xs text-slate-400">${c.subject}</p>
+                        </div>
+                        ${logoUrl ? `
+                            <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
+                                <img src="${logoUrl}" 
+                                     alt="School Logo" 
+                                     class="w-full h-full object-contain rounded-lg"
+                                     onerror="this.onerror=null; this.parentElement.style.display='none';" />
+                            </div>
+                        ` : ''}
                     </div>
-                ` : ''}
-            </div>
 
-            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
-                <p class="text-slate-300"><span class="text-slate-500">School:</span> ${currentUser.school || 'N/A'} ${currentUser.school_location ? `(${currentUser.school_location})` : ''}</p>
-                <p class="text-slate-300"><span class="text-slate-500">Teacher:</span> ${currentUser.name} (${currentUser.position || 'Teacher'})</p>
-                <p class="text-slate-300"><span class="text-slate-500">Phone:</span> <span class="font-mono text-indigo-300">${currentUser.phone || 'N/A'}</span></p>
-            </div>
+                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
+                        <p class="text-slate-300"><span class="text-slate-500">School:</span> ${currentUser.school || 'N/A'} ${currentUser.school_location ? `(${currentUser.school_location})` : ''}</p>
+                        <p class="text-slate-300"><span class="text-slate-500">Teacher:</span> ${currentUser.name} (${currentUser.position || 'Teacher'})</p>
+                        <p class="text-slate-300"><span class="text-slate-500">Phone:</span> <span class="font-mono text-indigo-300">${currentUser.phone || 'N/A'}</span></p>
+                    </div>
 
-            <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
-                <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
-            </div>
+                    <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
+                        <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
+                    </div>
+                </div>
 
-            <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
-                <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
-            </button>
-        </div>
-    `).join('');
-    
+                <!-- Live Stream & Exam Controls -->
+                <div class="space-y-2 pt-2 border-t border-slate-800/80">
+                    <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                        <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
+                    </button>
+
+                    <button onclick="window.openCreateExamModal('${c.class_code}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i> Create / Load Exam
+                    </button>
+
+                    ${classExams.map(ex => `
+                        <button onclick="window.viewExamResults(${ex.id})" class="w-full py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 font-semibold rounded-xl text-[11px] transition flex items-center justify-between px-3">
+                            <span class="truncate">📊 ${ex.title} Results</span>
+                            <span class="text-emerald-400 font-bold">View Marks</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }).join('');
+
     if (window.lucide) lucide.createIcons();
 }
 
-// Student Dashboard
+// Student Dashboard (with Active Exam Session & Score Feedback)
 async function renderStudentDashboard() {
     const container = document.getElementById('student-classes-cards');
     if (!container) return;
@@ -472,7 +497,18 @@ async function renderStudentDashboard() {
 
     if (classError || !classes || classes.length === 0) return;
 
-    // Fetch teacher profile details for these classes
+    // Fetch active exams & student submissions
+    const { data: exams } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .in('class_code', classCodes);
+
+    const { data: submissions } = await supabaseClient
+        .from('submissions')
+        .select('*')
+        .eq('student_email', currentUser?.email);
+
+    // Fetch teacher profile details
     const teacherEmails = [...new Set(classes.map(c => c.teacher_email))];
     const { data: teacherProfiles } = await supabaseClient
         .from('profiles')
@@ -481,101 +517,76 @@ async function renderStudentDashboard() {
 
     const teacherMap = {};
     if (teacherProfiles) {
-        teacherProfiles.forEach(t => {
-            teacherMap[t.email] = t;
-        });
+        teacherProfiles.forEach(t => { teacherMap[t.email] = t; });
     }
 
     container.innerHTML = classes.map(c => {
         const teacher = teacherMap[c.teacher_email] || {};
-        const logoUrl = getDirectImageUrl(teacher.school_logo_url);
+        const logoUrl = typeof getDirectImageUrl === 'function' ? getDirectImageUrl(teacher.school_logo_url) : null;
+        const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
+
         return `
-            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-4">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="space-y-1">
-                        <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-                        <p class="text-xs text-slate-400">${c.subject}</p>
-                    </div>
-                    ${logoUrl ? `
-                        <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
-                            <img src="${logoUrl}" 
-                                 alt="School Logo" 
-                                 class="w-full h-full object-contain rounded-lg"
-                                 onerror="this.onerror=null; this.parentElement.style.display='none';" />
+            <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700/80 space-y-4 shadow-xl flex flex-col justify-between">
+                <div class="space-y-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1">
+                            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
+                            <p class="text-xs text-slate-400">${c.subject}</p>
                         </div>
-                    ` : ''}
+                        ${logoUrl ? `
+                            <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
+                                <img src="${logoUrl}" 
+                                     alt="School Logo" 
+                                     class="w-full h-full object-contain rounded-lg"
+                                     onerror="this.onerror=null; this.parentElement.style.display='none';" />
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
+                        <p class="text-slate-300"><span class="text-slate-500">School:</span> ${teacher.school || 'N/A'} ${teacher.school_location ? `(${teacher.school_location})` : ''}</p>
+                        <p class="text-slate-300"><span class="text-slate-500">Teacher:</span> ${teacher.name || 'N/A'} ${teacher.position ? `(${teacher.position})` : ''}</p>
+                        <p class="text-slate-300"><span class="text-slate-500">Phone:</span> <span class="font-mono text-indigo-300">${teacher.phone || 'N/A'}</span></p>
+                        <p class="text-slate-300"><span class="text-slate-500">Email:</span> ${teacher.email || c.teacher_email}</p>
+                    </div>
+
+                    <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
+                        <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
+                    </div>
                 </div>
 
-                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 space-y-1 text-xs">
-                    <p class="text-slate-300"><span class="text-slate-500">School:</span> ${teacher.school || 'N/A'} ${teacher.school_location ? `(${teacher.school_location})` : ''}</p>
-                    <p class="text-slate-300"><span class="text-slate-500">Teacher:</span> ${teacher.name || 'N/A'} ${teacher.position ? `(${teacher.position})` : ''}</p>
-                    <p class="text-slate-300"><span class="text-slate-500">Phone:</span> <span class="font-mono text-indigo-300">${teacher.phone || 'N/A'}</span></p>
-                    <p class="text-slate-300"><span class="text-slate-500">Email:</span> ${teacher.email || c.teacher_email}</p>
-                </div>
+                <!-- Live Stream & Student Exam Buttons -->
+                <div class="space-y-2 pt-2 border-t border-slate-800/80">
+                    <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                        <i data-lucide="video" class="w-4 h-4"></i> Join Live Class
+                    </button>
 
-                <div class="flex justify-between items-center bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                    <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Class Code:</span>
-                    <span class="font-mono font-bold text-indigo-400 text-sm">${c.class_code}</span>
+                    ${classExams.map(ex => {
+                        const sub = submissions ? submissions.find(s => s.exam_id === ex.id) : null;
+                        if (sub) {
+                            return `
+                                <div class="w-full py-2 bg-emerald-950/50 border border-emerald-800/80 text-emerald-300 rounded-xl text-xs px-3 flex justify-between items-center font-semibold">
+                                    <span>📝 ${ex.title}</span>
+                                    <span class="font-mono font-bold">${sub.score_obtained}/${ex.total_marks} (${sub.percentage}%)</span>
+                                </div>
+                            `;
+                        } else {
+                            return `
+                                <button onclick="window.openStudentExam(${ex.id})" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-between px-3 shadow-md">
+                                    <span class="flex items-center gap-1.5"><i data-lucide="edit-3" class="w-4 h-4"></i> ${ex.title}</span>
+                                    <span class="bg-emerald-950/80 px-2 py-0.5 rounded text-[10px] text-emerald-200 border border-emerald-700/80">⏱️ ${ex.duration_minutes}m \vert{}${ex.total_marks} pts</span>
+                                </button>
+                            `;
+                        }
+                    }).join('')}
                 </div>
-
-                <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
-                    <i data-lucide="video" class="w-4 h-4"></i> Join Live Class
-                </button>
             </div>
         `;
     }).join('');
 
     if (window.lucide) lucide.createIcons();
 }
-
-// Jitsi Video Classroom Engine
-window.startLiveStream = function(classCode, className) {
-    const modal = document.getElementById('live-stream-modal');
-    const title = document.getElementById('live-stream-title');
-    const container = document.getElementById('jitsi-container');
-
-    if (!modal || !container) return;
-
-    title.textContent = `Live Class: ${className} (${classCode})`;
-    modal.classList.remove('hidden');
-    container.innerHTML = '';
-
-    const domain = 'meet.jit.si';
-    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-    const options = {
-        roomName: roomName,
-        width: '100%',
-        height: '100%',
-        parentNode: container,
-        userInfo: {
-            displayName: currentUser ? currentUser.name : 'Guest User'
-        },
-        configOverwrite: {
-            startWithAudioMuted: true,
-            disableDeepLinking: true
-        },
-        interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false
-        }
-    };
-
-    jitsiApi = new JitsiMeetExternalAPI(domain, options);
-};
-
-// Close Live Stream Session
-window.closeLiveStream = function() {
-    const modal = document.getElementById('live-stream-modal');
-    const container = document.getElementById('jitsi-container');
-
-    if (jitsiApi) {
-        jitsiApi.dispose();
-        jitsiApi = null;
-    }
-
-    if (container) container.innerHTML = '';
-    if (modal) modal.classList.add('hidden');
-};
 // Render Teacher Active Classes with School Details + Exam Buttons
 window.renderTeacherClasses = async function() {
     const container = document.getElementById('teacher-classes-cards');
