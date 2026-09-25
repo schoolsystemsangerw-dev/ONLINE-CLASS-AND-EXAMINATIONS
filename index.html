@@ -223,13 +223,13 @@
 
             <div class="overflow-x-auto mt-4">
                 <table class="w-full text-left text-xs">
-                    <thead>
+                   <thead>
                         <tr class="text-slate-400 border-b border-slate-800 uppercase tracking-wider text-[10px]">
                             <th class="py-3 px-4">Date</th>
+                            <th class="py-3 px-4">Sender Info</th>
                             <th class="py-3 px-4">Category</th>
-                            <th class="py-3 px-4">User Email</th>
                             <th class="py-3 px-4">Message</th>
-                            <th class="py-3 px-4">Status</th>
+                            <th class="py-3 px-4">Status & Reply</th>
                             <th class="py-3 px-4">Action</th>
                         </tr>
                     </thead>
@@ -400,21 +400,31 @@
 <button onclick="toggleHelpModal(true)" class="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-4 py-3 rounded-full shadow-2xl flex items-center gap-2.5 font-bold text-sm tracking-wide transition-all transform hover:scale-105 border border-indigo-400/30">
     <span>💬</span> Help & Support
 </button>
-
-<!-- HELP DESK MODAL -->
+<!-- HELP DESK MODAL WITH USER RESPONSE TRACKING -->
 <div id="help-desk-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between pb-4 border-b border-slate-800">
             <div>
                 <h3 class="text-white font-bold text-lg flex items-center gap-2">
-                    <span>📩</span> Help Desk & Suggestions
+                    <span>📩</span> Help Desk & Support
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Submit complaints or feedback directly to administration.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Submit feedback or review replies from platform management.</p>
             </div>
             <button onclick="toggleHelpModal(false)" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
         </div>
 
-        <form id="help-desk-form" class="mt-4 space-y-4">
+        <!-- Navigation Tabs -->
+        <div class="flex gap-4 border-b border-slate-800 mt-4 mb-4 text-xs font-bold">
+            <button id="tab-btn-new" onclick="switchHelpTab('new')" class="pb-2 border-b-2 border-indigo-500 text-indigo-400">
+                ➕ New Submission
+            </button>
+            <button id="tab-btn-history" onclick="switchHelpTab('history'); loadMyTickets();" class="pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                📜 My Tickets & Replies
+            </button>
+        </div>
+
+        <!-- TAB 1: New Ticket Form -->
+        <form id="help-desk-form" class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Issue Category</label>
                 <select id="help-category" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
@@ -427,11 +437,7 @@
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Detailed Message / Complaint</label>
-                <textarea id="help-message" rows="4" required placeholder="Describe your issue or suggestion in detail..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
-            </div>
-
-            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/60 text-[11px] text-slate-400">
-                📌 Submissions are routed directly to system support: <span class="text-indigo-400 font-medium">schoolsystems.ange.rw@gmail.com</span>
+                <textarea id="help-message" rows="4" required placeholder="Describe your issue or suggestion..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
@@ -441,6 +447,13 @@
                 </button>
             </div>
         </form>
+
+        <!-- TAB 2: User's Past Tickets & Owner Responses -->
+        <div id="help-history-view" class="hidden space-y-3">
+            <div id="my-tickets-container" class="space-y-3">
+                <p class="text-xs text-slate-500 text-center py-4">Loading your tickets...</p>
+            </div>
+        </div>
     </div>
 </div>
     <!-- BEAUTIFUL CREATOR & DESIGNER FOOTER -->
