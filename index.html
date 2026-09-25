@@ -330,6 +330,53 @@
         <div id="exam-modal-footer" class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end gap-3"></div>
     </div>
 </div>
+    <!-- FLOATING HELP DESK BUTTON -->
+<button onclick="toggleHelpModal(true)" class="fixed bottom-6 right-6 z-40 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-4 py-3 rounded-full shadow-2xl flex items-center gap-2.5 font-bold text-sm tracking-wide transition-all transform hover:scale-105 border border-indigo-400/30">
+    <span>💬</span> Help & Support
+</button>
+
+<!-- HELP DESK MODAL -->
+<div id="help-desk-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div>
+                <h3 class="text-white font-bold text-lg flex items-center gap-2">
+                    <span>📩</span> Help Desk & Suggestions
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Submit complaints or feedback directly to administration.</p>
+            </div>
+            <button onclick="toggleHelpModal(false)" class="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+        </div>
+
+        <form id="help-desk-form" class="mt-4 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Issue Category</label>
+                <select id="help-category" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
+                    <option value="Technical Issue / Bug">Technical Issue / Bug</option>
+                    <option value="Classroom & Live Stream">Classroom & Live Stream</option>
+                    <option value="Feature Suggestion">Feature Suggestion</option>
+                    <option value="General Inquiry">General Inquiry</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Detailed Message / Complaint</label>
+                <textarea id="help-message" rows="4" required placeholder="Describe your issue or suggestion in detail..." class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+
+            <div class="bg-slate-950/60 p-3 rounded-lg border border-slate-800/60 text-[11px] text-slate-400">
+                📌 Submissions are routed directly to system support: <span class="text-indigo-400 font-medium">schoolsystems.ange.rw@gmail.com</span>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="toggleHelpModal(false)" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-lg font-bold text-xs shadow-lg transition-colors">
+                    Send Submission
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
     <!-- BEAUTIFUL CREATOR & DESIGNER FOOTER -->
 <footer class="w-full bg-slate-950 border-t border-slate-800/80 text-slate-400 py-6 px-4 mt-auto">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
