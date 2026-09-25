@@ -1268,8 +1268,6 @@ window.startLiveStream = function(classCode, className) {
     jitsiApi.addEventListener('largeVideoChanged', () => {
         jitsiApi.executeCommand('setTileView', false);
     });
-};
-
 // Global Stream Cleanup Function
 window.closeLiveStream = function() {
     if (jitsiApi) {
@@ -1288,7 +1286,7 @@ window.closeLiveStream = function() {
     if (modal) modal.classList.add('hidden');
 };
 
-// Application Initialization
+// Ensure DOM content loaded runs checkSession
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof checkSession === 'function') {
         checkSession();
