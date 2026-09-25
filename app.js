@@ -1301,4 +1301,4 @@ if (jitsiApi) {
 
     const modal = document.getElementById('live-stream-modal');
     if (modal) modal.classList.add('hidden');
-  };
+  });
