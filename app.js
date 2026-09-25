@@ -994,3 +994,178 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
+// Toggle Help Desk Modal
+window.toggleHelpModal = function(show) {
+    const modal = document.getElementById('help-desk-modal');
+    if (modal) {
+        if (show) modal.classList.remove('hidden');
+        else modal.classList.add('hidden');
+    }
+};
+
+// Help Desk Form Submission to Supabase DB
+document.addEventListener('DOMContentLoaded', () => {
+    const helpForm = document.getElementById('help-desk-form');
+    if (helpForm) {
+        helpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const category = document.getElementById('help-category').value;
+            const message = document.getElementById('help-message').value;
+            
+            let userEmail = 'Anonymous User';
+            try {
+                if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+                    const user = supabaseClient.auth.user();
+                    if (user && user.email) userEmail = user.email;
+                }
+            } catch (err) {
+                console.warn('Auth user fetch warning:', err);
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('help_tickets')
+                    .insert([
+                        { user_email: userEmail, category: category, message: message, status: 'Pending' }
+                    ]);
+
+                if (error) throw error;
+
+                alert('✅ Complaint/Suggestion successfully sent to Owner Dashboard!');
+                document.getElementById('help-message').value = '';
+                toggleHelpModal(false);
+
+                if (typeof loadHelpTickets === 'function') loadHelpTickets();
+
+            } catch (err) {
+                console.error('Error submitting ticket:', err);
+                alert('Submission error: ' + (err.message || 'Database connection issue'));
+            }
+        });
+    }
+});
+
+// Load User Directory for Owner Panel
+window.loadUserDirectory = async function() {
+    const tbody = document.getElementById('user-directory-tbody');
+    if (!tbody) return;
+
+    try {
+        const { data: users, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!users || users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">No registered users found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = users.map(u => {
+            let roleBadge = 'bg-slate-800 text-slate-300';
+            if (u.role === 'teacher') roleBadge = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+            if (u.role === 'student') roleBadge = 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+            if (u.role === 'admin' || u.role === 'owner') roleBadge = 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition-colors">
+                    <td class="py-3 px-4 font-semibold text-white">${u.full_name || 'User'}</td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold ${roleBadge}">${u.role || 'Member'}</span></td>
+                    <td class="py-3 px-4 font-mono text-slate-400">${u.email || 'N/A'}</td>
+                    <td class="py-3 px-4 text-emerald-400 font-medium">● Active</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        console.warn('Error loading user directory:', err);
+        tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-rose-400">Failed to load directory. Ensure 'profiles' table exists.</td></tr>`;
+    }
+};
+
+// Load Help Desk Tickets into Owner Inbox
+window.loadHelpTickets = async function() {
+    const tbody = document.getElementById('help-tickets-tbody');
+    if (!tbody) return;
+
+    try {
+        const { data: tickets, error } = await supabaseClient
+            .from('help_tickets')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!tickets || tickets.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">No complaints or suggestions submitted yet.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = tickets.map(t => {
+            const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30';
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition-colors">
+                    <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${dateStr}</td>
+                    <td class="py-3 px-4 font-semibold text-indigo-300">${t.category}</td>
+                    <td class="py-3 px-4 font-mono text-slate-300">${t.user_email || 'Anonymous'}</td>
+                    <td class="py-3 px-4 text-slate-200 max-w-xs break-words">${t.message}</td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold ${statusBadge}">${t.status || 'Pending'}</span></td>
+                    <td class="py-3 px-4">
+                        ${t.status !== 'Resolved' ? `
+                            <button onclick="resolveHelpTicket(${t.id})" class="bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors">
+                                ✓ Resolve
+                            </button>
+                        ` : '<span class="text-slate-500 text-[11px]">Completed</span>'}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.warn('Error loading tickets:', err);
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox. Run SQL table query in Supabase.</td></tr>`;
+    }
+};
+
+// Resolve Ticket
+window.resolveHelpTicket = async function(ticketId) {
+    try {
+        const { error } = await supabaseClient
+            .from('help_tickets')
+            .update({ status: 'Resolved' })
+            .eq('id', ticketId);
+
+        if (error) throw error;
+        loadHelpTickets();
+    } catch (err) {
+        alert('Could not resolve ticket: ' + err.message);
+    }
+};
+
+// Global Stream Cleanup Function
+window.closeLiveStream = function() {
+    if (typeof jitsiApi !== 'undefined' && jitsiApi) {
+        try {
+            jitsiApi.dispose();
+        } catch (e) {
+            console.warn("Jitsi cleanup warning:", e);
+        }
+        jitsiApi = null;
+    }
+    
+    const container = document.getElementById('jitsi-container');
+    if (container) container.innerHTML = '';
+
+    const modal = document.getElementById('live-stream-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
+// Application Initialization
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof checkSession === 'function') {
+        checkSession();
+    }
+});
