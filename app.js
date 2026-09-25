@@ -1256,20 +1256,41 @@ window.startLiveStream = function(classCode, className) {
         }
     };
 
-    // Initialize Jitsi API[cite: 4]
+   // Initialize Jitsi API
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
 
-    // Lock viewpoint: ensure the shared screen/camera dominates 100% of the display[cite: 4]
+    // Lock viewpoint: ensure shared screen/camera dominates
     jitsiApi.addEventListener('videoConferenceJoined', () => {
         jitsiApi.executeCommand('setTileView', false);
     });
 
-    // Automatically maximize screen share whenever the teacher shares content
+    // Automatically maximize screen share whenever content changes
     jitsiApi.addEventListener('largeVideoChanged', () => {
         jitsiApi.executeCommand('setTileView', false);
     });
 };
+
+// Global Stream Cleanup Function
+window.closeLiveStream = function() {
+    if (jitsiApi) {
+        try {
+            jitsiApi.dispose();
+        } catch (e) {
+            console.warn("Jitsi cleanup warning:", e);
+        }
+        jitsiApi = null;
+    }
+    
+    const container = document.getElementById('jitsi-container');
+    if (container) container.innerHTML = '';
+
+    const modal = document.getElementById('live-stream-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
 // Ensure DOM content loaded closes properly
 document.addEventListener('DOMContentLoaded', () => {
-    checkSession();
+    if (typeof checkSession === 'function') {
+        checkSession();
+    }
 });
