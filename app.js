@@ -1069,18 +1069,24 @@ window.loadUserDirectory = async function() {
             if (u.role === 'student') roleBadge = 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
             if (u.role === 'admin' || u.role === 'owner') roleBadge = 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
 
+            // Check every possible column name for full name and phone number
+            const displayName = u.full_name || u.name || u.username || u.display_name || u.email?.split('@')[0] || 'User';
+            const displayPhone = u.phone || u.phone_number || u.mobile || '';
+
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="py-3 px-4 font-semibold text-white">${u.full_name || 'User'}</td>
-                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold ${roleBadge}">${u.role || 'Member'}</span></td>
-                    <td class="py-3 px-4 font-mono text-slate-400">${u.email || 'N/A'}</td>
-                    <td class="py-3 px-4 text-emerald-400 font-medium">● Active</td>
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-white text-xs">${displayName}</div>
+                        ${displayPhone ? `<div class="text-[10px] text-slate-400 font-mono">📞 ${displayPhone}</div>` : ''}
+                    </td>
+                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold border ${roleBadge}">${u.role || 'Member'}</span></td>
+                    <td class="py-3 px-4 font-mono text-slate-300 text-xs">${u.email || 'N/A'}</td>
+                    <td class="py-3 px-4 text-emerald-400 font-medium text-xs">● Active</td>
                 </tr>
             `;
         }).join('');
     } catch (err) {
-        console.warn('Error loading user directory:', err);
-        tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-rose-400">Failed to load directory. Ensure 'profiles' table exists.</td></tr>`;
+        console.warn('Error loading directory:', err);
     }
 };
 // Tab Switching inside Help Modal
@@ -1103,7 +1109,7 @@ window.switchHelpTab = function(tab) {
     }
 };
 
-// Help Desk Form Submit: Pulls actual user name & email from session/localStorage
+// Help Desk Form Submit: Directly queries 'profiles' table using active user email
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
@@ -1117,41 +1123,35 @@ document.addEventListener('DOMContentLoaded', () => {
             let userPhone = 'N/A';
             let userId = null;
 
-            // 1. Try fetching user info from localStorage / sessionStorage saved during login
             try {
-                const storedUser = localStorage.getItem('smartedu_user') || sessionStorage.getItem('smartedu_user') || localStorage.getItem('user_profile');
-                if (storedUser) {
-                    const parsed = JSON.parse(storedUser);
-                    userName = parsed.full_name || parsed.name || userName;
-                    userEmail = parsed.email || userEmail;
-                    userPhone = parsed.phone || parsed.phone_number || userPhone;
-                    userId = parsed.id || null;
+                let activeUser = null;
+                if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+                    if (typeof supabaseClient.auth.getUser === 'function') {
+                        const { data } = await supabaseClient.auth.getUser();
+                        activeUser = data?.user;
+                    } else if (typeof supabaseClient.auth.user === 'function') {
+                        activeUser = supabaseClient.auth.user();
+                    }
+                }
+
+                if (activeUser) {
+                    userEmail = activeUser.email || 'N/A';
+                    userId = activeUser.id;
+
+                    // Directly fetch profile details using email
+                    const { data: profile } = await supabaseClient
+                        .from('profiles')
+                        .select('*')
+                        .eq('email', userEmail)
+                        .maybeSingle();
+
+                    if (profile) {
+                        userName = profile.full_name || profile.name || profile.username || profile.display_name || userName;
+                        userPhone = profile.phone || profile.phone_number || profile.mobile || userPhone;
+                    }
                 }
             } catch (err) {
-                console.warn('Error reading stored user session:', err);
-            }
-
-            // 2. Fallback to currentUserProfile if active in window memory
-            if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
-                userName = currentUserProfile.full_name || currentUserProfile.name || userName;
-                userEmail = currentUserProfile.email || userEmail;
-                userPhone = currentUserProfile.phone || currentUserProfile.phone_number || userPhone;
-                userId = currentUserProfile.id || userId;
-            }
-
-            // 3. Fallback to Supabase auth session
-            if (userEmail === 'N/A' && typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                try {
-                    const { data } = await supabaseClient.auth.getSession();
-                    if (data?.session?.user) {
-                        userEmail = data.session.user.email || userEmail;
-                        userId = data.session.user.id || userId;
-                        userName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name || userName;
-                        userPhone = data.session.user.user_metadata?.phone || userPhone;
-                    }
-                } catch (authErr) {
-                    console.warn('Supabase session fetch warning:', authErr);
-                }
+                console.warn('Error pulling user profile info:', err);
             }
 
             try {
