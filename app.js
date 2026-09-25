@@ -1287,24 +1287,18 @@ window.closeLiveStream = function() {
 };
 
 if (jitsiApi) {
-    try {
-      jitsiApi.dispose();
-    } catch (e) {
-      console.warn("Jitsi cleanup warning:", e);
+    if (jitsiApi) {
+      try {
+        jitsiApi.dispose();
+      } catch (e) {
+        console.warn("Jitsi cleanup warning:", e);
+      }
+      jitsiApi = null;
     }
-    jitsiApi = null;
-  }
 
-  const container = document.getElementById('jitsi-container');
-  if (container) container.innerHTML = '';
+    const jitsiContainer = document.getElementById('jitsi-container');
+    if (jitsiContainer) jitsiContainer.innerHTML = '';
 
-  const modal = document.getElementById('live-stream-modal');
-  if (modal) modal.classList.add('hidden');
-};
-
-// Ensure DOM content loaded runs checkSession
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof checkSession === 'function') {
-    checkSession();
-  }
-});
+    const modal = document.getElementById('live-stream-modal');
+    if (modal) modal.classList.add('hidden');
+  };
