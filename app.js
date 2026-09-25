@@ -1103,7 +1103,7 @@ window.switchHelpTab = function(tab) {
     }
 };
 
-// Help Desk Form Submit: Saves Name, Email, Phone, and User ID safely
+// Help Desk Form Submit: Pulls actual user name & email from session/localStorage
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
@@ -1117,33 +1117,40 @@ document.addEventListener('DOMContentLoaded', () => {
             let userPhone = 'N/A';
             let userId = null;
 
-            // 1. Check local session variable first
-            if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
-                userName = currentUserProfile.full_name || currentUserProfile.name || 'User';
-                userEmail = currentUserProfile.email || 'N/A';
-                userPhone = currentUserProfile.phone || currentUserProfile.phone_number || 'N/A';
-                userId = currentUserProfile.id || null;
-            } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                // 2. Safe authentication check for Supabase v2 & v1
-                try {
-                    let user = null;
-                    if (typeof supabaseClient.auth.getUser === 'function') {
-                        const { data } = await supabaseClient.auth.getUser();
-                        user = data?.user;
-                    } else if (typeof supabaseClient.auth.user === 'function') {
-                        user = supabaseClient.auth.user();
-                    }
+            // 1. Try fetching user info from localStorage / sessionStorage saved during login
+            try {
+                const storedUser = localStorage.getItem('smartedu_user') || sessionStorage.getItem('smartedu_user') || localStorage.getItem('user_profile');
+                if (storedUser) {
+                    const parsed = JSON.parse(storedUser);
+                    userName = parsed.full_name || parsed.name || userName;
+                    userEmail = parsed.email || userEmail;
+                    userPhone = parsed.phone || parsed.phone_number || userPhone;
+                    userId = parsed.id || null;
+                }
+            } catch (err) {
+                console.warn('Error reading stored user session:', err);
+            }
 
-                    if (user) {
-                        userEmail = user.email || 'N/A';
-                        userId = user.id || null;
-                        if (user.user_metadata) {
-                            userName = user.user_metadata.full_name || user.user_metadata.name || userName;
-                            userPhone = user.user_metadata.phone || userPhone;
-                        }
+            // 2. Fallback to currentUserProfile if active in window memory
+            if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+                userName = currentUserProfile.full_name || currentUserProfile.name || userName;
+                userEmail = currentUserProfile.email || userEmail;
+                userPhone = currentUserProfile.phone || currentUserProfile.phone_number || userPhone;
+                userId = currentUserProfile.id || userId;
+            }
+
+            // 3. Fallback to Supabase auth session
+            if (userEmail === 'N/A' && typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+                try {
+                    const { data } = await supabaseClient.auth.getSession();
+                    if (data?.session?.user) {
+                        userEmail = data.session.user.email || userEmail;
+                        userId = data.session.user.id || userId;
+                        userName = data.session.user.user_metadata?.full_name || data.session.user.user_metadata?.name || userName;
+                        userPhone = data.session.user.user_metadata?.phone || userPhone;
                     }
                 } catch (authErr) {
-                    console.warn('Auth user fetch warning:', authErr);
+                    console.warn('Supabase session fetch warning:', authErr);
                 }
             }
 
@@ -1164,8 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 alert('✅ Submitted successfully! You can track replies under "My Tickets & Replies".');
                 document.getElementById('help-message').value = '';
-                toggleHelpModal(false);
-
+                if (typeof toggleHelpModal === 'function') toggleHelpModal(false);
                 if (typeof loadHelpTickets === 'function') loadHelpTickets();
 
             } catch (err) {
@@ -1175,7 +1181,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
 // Load Tickets for Logged-In User with Owner Replies (Safe Auth Handling)
 window.loadMyTickets = async function() {
     const container = document.getElementById('my-tickets-container');
