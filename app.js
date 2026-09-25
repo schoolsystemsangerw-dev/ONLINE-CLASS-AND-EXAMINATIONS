@@ -1183,7 +1183,6 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
-
 // Universal Cross-Platform Live Classroom (Full-Screen Teacher Display)
 window.startLiveStream = function(classCode, className) {
     const modal = document.getElementById('live-stream-modal');
