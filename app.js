@@ -433,8 +433,7 @@ window.closeLiveStream = function() {
                 }
                 return;
             }
-
-            alert(`Successfully joined ${classData.class_name}!`);
+alert('Successfully joined ' + classData.class_name + '!');
             if (classCodeInput) classCodeInput.value = '';
             renderStudentDashboard();
         });
