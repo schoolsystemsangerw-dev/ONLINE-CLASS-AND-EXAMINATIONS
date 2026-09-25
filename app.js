@@ -1218,20 +1218,14 @@ window.startLiveStream = function(classCode, className) {
         },
         configOverwrite: {
             startWithAudioMuted: !isTeacher,
-            startWithVideoMuted: !isTeacher, // Teacher camera ON, student camera OFF[cite: 4]
-            disableDeepLinking: true,        // Prevents app download popups on smartphones[cite: 4]
+            startWithVideoMuted: !isTeacher,
+            disableDeepLinking: true,
             mobileAppPromotionsEnabled: false,
-
-            // One-Way Stream Bandwidth Optimization[cite: 4]
             disableAudioLevels: !isTeacher,
-            
-            // Screen Share Precision & Maximized Clarity[cite: 4]
             desktopSharingFrameRate: {
                 min: 20,
                 max: 30
             },
-
-            // FORCE FULL SCREEN VIEWING (Hides all sidebars)
             filmStripOnly: false,
             disableSelfView: !isTeacher
         },
@@ -1239,16 +1233,12 @@ window.startLiveStream = function(classCode, className) {
             SHOW_JITSI_WATERMARK: false,
             SHOW_WATERMARK_FOR_GUESTS: false,
             MOBILE_APP_PROMO: false,
-
-            // Toolbar configuration[cite: 4]
             TOOLBAR_BUTTONS: isTeacher ? [
                 'microphone', 'camera', 'desktop', 'fullscreen',
                 'hangup', 'chat', 'raisehand', 'participants-pane'
             ] : [
-                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand' //[cite: 4]
+                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
             ],
-
-            // Force Shared Content to Fill 100% Window Width
             VERTICAL_FILMSTRIP: false,
             HIDE_KICK_BACKGROUND_MEDIA: true,
             OPTIMIZE_FOR_MOBILE: true,
@@ -1256,7 +1246,7 @@ window.startLiveStream = function(classCode, className) {
         }
     };
 
-   // Initialize Jitsi API
+    // Initialize Jitsi API
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
 
     // Lock viewpoint: ensure shared screen/camera dominates
@@ -1268,6 +1258,8 @@ window.startLiveStream = function(classCode, className) {
     jitsiApi.addEventListener('largeVideoChanged', () => {
         jitsiApi.executeCommand('setTileView', false);
     });
+}; // <--- Fixed missing closing brace for startLiveStream
+
 // Global Stream Cleanup Function
 window.closeLiveStream = function() {
     if (jitsiApi) {
@@ -1282,25 +1274,13 @@ window.closeLiveStream = function() {
     const container = document.getElementById('jitsi-container');
     if (container) container.innerHTML = '';
 
-   const modal = document.getElementById('live-stream-modal');
-  if (modal) modal.classList.add('hidden');
-
-  if (jitsiApi) {
-    try {
-      jitsiApi.dispose();
-    } catch (e) {
-      console.warn("Jitsi cleanup warning:", e);
-    }
-    jitsiApi = null;
-  }
-
-  const jitsiContainer = document.getElementById('jitsi-container');
-  if (jitsiContainer) jitsiContainer.innerHTML = '';
+    const modal = document.getElementById('live-stream-modal');
+    if (modal) modal.classList.add('hidden');
 };
 
 // Ensure DOM content loaded runs checkSession
 document.addEventListener('DOMContentLoaded', () => {
-  if (typeof checkSession === 'function') {
-    checkSession();
-  }
+    if (typeof checkSession === 'function') {
+        checkSession();
+    }
 });
