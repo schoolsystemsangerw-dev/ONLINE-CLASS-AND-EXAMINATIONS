@@ -1269,3 +1269,7 @@ window.startLiveStream = function(classCode, className) {
         jitsiApi.executeCommand('setTileView', false);
     });
 };
+// Ensure DOM content loaded closes properly
+document.addEventListener('DOMContentLoaded', () => {
+    checkSession();
+});
