@@ -1288,7 +1288,7 @@ window.closeLiveStream = function() {
     if (modal) modal.classList.add('hidden');
 };
 
-// Ensure DOM content loaded closes properly
+// Application Initialization
 document.addEventListener('DOMContentLoaded', () => {
     if (typeof checkSession === 'function') {
         checkSession();
