@@ -1108,7 +1108,7 @@ window.switchHelpTab = function(tab) {
         if (btnNew) btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
     }
 };
-// Help Desk Form Submit: Directly queries 'profiles' table using active user email
+// Help Desk Form Submit: Directly queries 'profiles' table using active user session
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
@@ -1122,8 +1122,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            let userName = 'Mwesigwa Elia';
-            let userEmail = 'schoolsystems.ange.rw@gmail.com';
+            let userName = 'Anonymous User';
+            let userEmail = 'N/A';
             let userPhone = 'N/A';
             let userId = null;
 
@@ -1143,7 +1143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         .maybeSingle();
 
                     if (profile) {
-                        userName = profile.full_name || profile.name || userName;
+                        userName = profile.name || profile.full_name || userName;
                         userPhone = profile.phone || profile.phone_number || userPhone;
                     }
                 }
@@ -1178,6 +1178,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
 // Load Tickets for Logged-In User with Owner Replies (Safe Auth Handling)
 window.loadMyTickets = async function() {
     const container = document.getElementById('my-tickets-container');
@@ -1252,6 +1253,7 @@ window.loadMyTickets = async function() {
         container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
     }
 };
+
 // Owner Inbox Handler: Custom match against public.profiles schema
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
@@ -1276,13 +1278,13 @@ window.loadHelpTickets = async function() {
             .from('profiles')
             .select('*');
 
-        // Create fast lookup dictionary by lowercase email
+        // Fast lookup maps by both ID and Email
+        const profileMapById = {};
         const profileMapByEmail = {};
         if (profiles) {
             profiles.forEach(p => {
-                if (p.email) {
-                    profileMapByEmail[p.email.toLowerCase().trim()] = p;
-                }
+                if (p.id) profileMapById[p.id] = p;
+                if (p.email) profileMapByEmail[p.email.toLowerCase().trim()] = p;
             });
         }
 
@@ -1291,7 +1293,8 @@ window.loadHelpTickets = async function() {
             let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
 
             const emailClean = (t.user_email || '').toLowerCase().trim();
-            const matchedProfile = profileMapByEmail[emailClean];
+            // Match via user_id first, fallback to email match
+            const matchedProfile = profileMapById[t.user_id] || profileMapByEmail[emailClean];
 
             // Resolve Name: Prioritize matched profile 'name' column
             let resolvedName = matchedProfile?.name || matchedProfile?.full_name || null;
@@ -1304,13 +1307,13 @@ window.loadHelpTickets = async function() {
                 resolvedName = t.user_email.split('@')[0];
             }
 
-            if (!resolvedName) resolvedName = 'User';
+            if (!resolvedName) resolvedName = 'Anonymous User';
 
             // Resolve Email
-            let resolvedEmail = t.user_email && t.user_email !== 'N/A' ? t.user_email : (matchedProfile?.email || 'N/A');
+            let resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'N/A');
 
             // Resolve Phone
-            let resolvedPhone = t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : (matchedProfile?.phone || matchedProfile?.phone_number || 'N/A');
+            let resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'N/A');
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors">
@@ -1327,7 +1330,7 @@ window.loadHelpTickets = async function() {
                         ${t.admin_response ? `<div class="text-[10px] text-slate-400 mt-1.5 max-w-xs italic border-l-2 border-indigo-500 pl-1.5">💬 ${t.admin_response}</div>` : ''}
                     </td>
                     <td class="py-3 px-4">
-                        <button onclick="replyToTicket(${t.id})" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors mb-1 block">
+                        <button onclick="replyToTicket('${t.id}')" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors mb-1 block">
                             💬 Reply
                         </button>
                     </td>
@@ -1338,5 +1341,33 @@ window.loadHelpTickets = async function() {
     } catch (err) {
         console.warn('Error loading tickets:', err);
         tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox.</td></tr>`;
+    }
+};
+
+// Global Reply Handler: Safely tied to window for inline HTML onclick calls
+window.replyToTicket = async function(ticketId) {
+    const response = prompt("Enter your reply message:");
+    if (!response || !response.trim()) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('help_tickets')
+            .update({ 
+                admin_response: response.trim(), 
+                status: 'Resolved' 
+            })
+            .eq('id', ticketId);
+
+        if (error) throw error;
+
+        alert("✅ Reply submitted successfully!");
+        if (typeof loadHelpTickets === 'function') {
+            loadHelpTickets();
+        } else {
+            location.reload();
+        }
+    } catch (err) {
+        console.error("Error sending reply:", err);
+        alert("Failed to send reply: " + (err.message || "Database error"));
     }
 };
