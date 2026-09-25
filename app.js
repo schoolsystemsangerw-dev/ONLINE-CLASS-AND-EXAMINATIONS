@@ -1255,7 +1255,7 @@ window.loadMyTickets = async function() {
         container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
     }
 };
-// Owner Inbox Handler: Cross-references profiles table for real user data
+// Owner Inbox Handler: Forces lookup for 'Anonymous User' & 'User'
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
     if (!tbody) return;
@@ -1274,7 +1274,7 @@ window.loadHelpTickets = async function() {
             return;
         }
 
-        // 2. Fetch profiles to resolve names, emails, and phone numbers
+        // 2. Fetch profiles to resolve real user names and phone numbers
         const { data: profiles } = await supabaseClient
             .from('profiles')
             .select('*');
@@ -1283,7 +1283,7 @@ window.loadHelpTickets = async function() {
         const profileMapById = {};
         if (profiles) {
             profiles.forEach(p => {
-                if (p.email) profileMapByEmail[p.email.toLowerCase()] = p;
+                if (p.email) profileMapByEmail[p.email.toLowerCase().trim()] = p;
                 if (p.id) profileMapById[p.id] = p;
             });
         }
@@ -1293,17 +1293,23 @@ window.loadHelpTickets = async function() {
             let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
 
             // Match sender profile
-            const userEmailClean = (t.user_email || '').toLowerCase();
+            const userEmailClean = (t.user_email || '').toLowerCase().trim();
             const matchedProfile = profileMapById[t.user_id] || profileMapByEmail[userEmailClean] || null;
 
-            // Resolve Name
-            let resolvedName = t.user_name && t.user_name !== 'User' && t.user_name !== 'Anonymous User' ? t.user_name : null;
+            // Resolve Name: Ignore generic placeholder strings
+            let resolvedName = null;
+            if (t.user_name && t.user_name !== 'User' && t.user_name !== 'Anonymous User' && t.user_name !== 'Anonymous') {
+                resolvedName = t.user_name;
+            }
+
             if (!resolvedName && matchedProfile) {
                 resolvedName = matchedProfile.full_name || matchedProfile.name || matchedProfile.username || matchedProfile.display_name;
             }
+
             if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
                 resolvedName = t.user_email.split('@')[0];
             }
+
             if (!resolvedName) resolvedName = 'User';
 
             // Resolve Email
@@ -1341,28 +1347,6 @@ window.loadHelpTickets = async function() {
 
     } catch (err) {
         console.warn('Error loading tickets:', err);
-        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox. Ensure SQL columns exist in Supabase.</td></tr>`;
-    }
-};
-
-// Owner Reply Prompt
-window.replyToTicket = async function(ticketId) {
-    const replyText = prompt("Type your official owner response to this user:");
-    if (!replyText || replyText.trim() === '') return;
-
-    try {
-        const { error } = await supabaseClient
-            .from('help_tickets')
-            .update({ 
-                admin_response: replyText.trim(),
-                status: 'Resolved'
-            })
-            .eq('id', ticketId);
-
-        if (error) throw error;
-        alert("✅ Reply sent and ticket marked as Resolved!");
-        loadHelpTickets();
-    } catch (err) {
-        alert("Could not send reply: " + err.message);
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox.</td></tr>`;
     }
 };
