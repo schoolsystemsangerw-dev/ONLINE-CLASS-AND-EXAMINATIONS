@@ -1252,7 +1252,7 @@ window.loadMyTickets = async function() {
         container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
     }
 };
-// Owner Inbox Handler: Forces lookup for 'Anonymous User' & 'User'
+// Owner Inbox Handler: Custom match against public.profiles schema
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
     if (!tbody) return;
@@ -1271,17 +1271,18 @@ window.loadHelpTickets = async function() {
             return;
         }
 
-        // 2. Fetch profiles to resolve real user names and phone numbers
+        // 2. Fetch profiles directly from public.profiles table
         const { data: profiles } = await supabaseClient
             .from('profiles')
             .select('*');
 
+        // Create fast lookup dictionary by lowercase email
         const profileMapByEmail = {};
-        const profileMapById = {};
         if (profiles) {
             profiles.forEach(p => {
-                if (p.email) profileMapByEmail[p.email.toLowerCase().trim()] = p;
-                if (p.id) profileMapById[p.id] = p;
+                if (p.email) {
+                    profileMapByEmail[p.email.toLowerCase().trim()] = p;
+                }
             });
         }
 
@@ -1289,18 +1290,14 @@ window.loadHelpTickets = async function() {
             const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
 
-            // Match sender profile
-            const userEmailClean = (t.user_email || '').toLowerCase().trim();
-            const matchedProfile = profileMapById[t.user_id] || profileMapByEmail[userEmailClean] || null;
+            const emailClean = (t.user_email || '').toLowerCase().trim();
+            const matchedProfile = profileMapByEmail[emailClean];
 
-            // Resolve Name: Ignore generic placeholder strings
-            let resolvedName = null;
-            if (t.user_name && t.user_name !== 'User' && t.user_name !== 'Anonymous User' && t.user_name !== 'Anonymous') {
+            // Resolve Name: Prioritize matched profile 'name' column
+            let resolvedName = matchedProfile?.name || matchedProfile?.full_name || null;
+
+            if (!resolvedName && t.user_name && !['User', 'Anonymous User', 'Anonymous', 'N/A'].includes(t.user_name.trim())) {
                 resolvedName = t.user_name;
-            }
-
-            if (!resolvedName && matchedProfile) {
-                resolvedName = matchedProfile.full_name || matchedProfile.name || matchedProfile.username || matchedProfile.display_name;
             }
 
             if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
@@ -1313,11 +1310,7 @@ window.loadHelpTickets = async function() {
             let resolvedEmail = t.user_email && t.user_email !== 'N/A' ? t.user_email : (matchedProfile?.email || 'N/A');
 
             // Resolve Phone
-            let resolvedPhone = t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : null;
-            if (!resolvedPhone && matchedProfile) {
-                resolvedPhone = matchedProfile.phone || matchedProfile.phone_number || matchedProfile.mobile;
-            }
-            if (!resolvedPhone) resolvedPhone = 'N/A';
+            let resolvedPhone = t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : (matchedProfile?.phone || matchedProfile?.phone_number || 'N/A');
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors">
