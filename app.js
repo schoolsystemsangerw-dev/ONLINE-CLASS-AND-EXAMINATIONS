@@ -1108,50 +1108,47 @@ window.switchHelpTab = function(tab) {
         if (btnNew) btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
     }
 };
-
 // Help Desk Form Submit: Directly queries 'profiles' table using active user email
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
         helpForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const category = document.getElementById('help-category').value;
-            const message = document.getElementById('help-message').value;
+            const category = document.getElementById('help-category')?.value || 'General Inquiry';
+            const message = document.getElementById('help-message')?.value || '';
 
-            let userName = 'User';
-            let userEmail = 'N/A';
+            if (!message.trim()) {
+                alert('Please enter a message before submitting.');
+                return;
+            }
+
+            let userName = 'Mwesigwa Elia';
+            let userEmail = 'schoolsystems.ange.rw@gmail.com';
             let userPhone = 'N/A';
             let userId = null;
 
             try {
-                let activeUser = null;
-                if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                    if (typeof supabaseClient.auth.getUser === 'function') {
-                        const { data } = await supabaseClient.auth.getUser();
-                        activeUser = data?.user;
-                    } else if (typeof supabaseClient.auth.user === 'function') {
-                        activeUser = supabaseClient.auth.user();
-                    }
-                }
+                // Check logged-in Supabase session
+                const { data: authData } = await supabaseClient.auth.getUser();
+                const activeUser = authData?.user;
 
                 if (activeUser) {
-                    userEmail = activeUser.email || 'N/A';
                     userId = activeUser.id;
+                    userEmail = activeUser.email || userEmail;
 
-                    // Directly fetch profile details using email
                     const { data: profile } = await supabaseClient
                         .from('profiles')
                         .select('*')
-                        .eq('email', userEmail)
+                        .eq('id', userId)
                         .maybeSingle();
 
                     if (profile) {
-                        userName = profile.full_name || profile.name || profile.username || profile.display_name || userName;
-                        userPhone = profile.phone || profile.phone_number || profile.mobile || userPhone;
+                        userName = profile.full_name || profile.name || userName;
+                        userPhone = profile.phone || profile.phone_number || userPhone;
                     }
                 }
             } catch (err) {
-                console.warn('Error pulling user profile info:', err);
+                console.warn('Session check warning:', err);
             }
 
             try {
@@ -1169,14 +1166,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (error) throw error;
 
-                alert('✅ Submitted successfully! You can track replies under "My Tickets & Replies".');
+                alert('✅ Submitted successfully!');
                 document.getElementById('help-message').value = '';
                 if (typeof toggleHelpModal === 'function') toggleHelpModal(false);
                 if (typeof loadHelpTickets === 'function') loadHelpTickets();
 
             } catch (err) {
                 console.error('Submission error:', err);
-                alert('Error submitting message: ' + (err.message || 'Database error'));
+                alert('Error submitting ticket: ' + (err.message || 'Database error'));
             }
         });
     }
