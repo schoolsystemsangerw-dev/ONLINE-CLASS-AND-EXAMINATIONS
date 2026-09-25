@@ -1091,19 +1091,19 @@ window.switchHelpTab = function(tab) {
     const btnHist = document.getElementById('tab-btn-history');
 
     if (tab === 'new') {
-        newForm.classList.remove('hidden');
-        historyView.classList.add('hidden');
-        btnNew.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400";
-        btnHist.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+        if (newForm) newForm.classList.remove('hidden');
+        if (historyView) historyView.classList.add('hidden');
+        if (btnNew) btnNew.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400";
+        if (btnHist) btnHist.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
     } else {
-        newForm.classList.add('hidden');
-        historyView.classList.remove('hidden');
-        btnHist.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400";
-        btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+        if (newForm) newForm.classList.add('hidden');
+        if (historyView) historyView.classList.remove('hidden');
+        if (btnHist) btnHist.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400";
+        if (btnNew) btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
     }
 };
 
-// Help Desk Form Submit: Saves Name, Email, Phone, and User ID
+// Help Desk Form Submit: Saves Name, Email, Phone, and User ID safely
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
@@ -1117,17 +1117,33 @@ document.addEventListener('DOMContentLoaded', () => {
             let userPhone = 'N/A';
             let userId = null;
 
-            // Fetch session profile info automatically
+            // 1. Check local session variable first
             if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
                 userName = currentUserProfile.full_name || currentUserProfile.name || 'User';
                 userEmail = currentUserProfile.email || 'N/A';
                 userPhone = currentUserProfile.phone || currentUserProfile.phone_number || 'N/A';
                 userId = currentUserProfile.id || null;
             } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                const user = supabaseClient.auth.user();
-                if (user) {
-                    userEmail = user.email || 'N/A';
-                    userId = user.id;
+                // 2. Safe authentication check for Supabase v2 & v1
+                try {
+                    let user = null;
+                    if (typeof supabaseClient.auth.getUser === 'function') {
+                        const { data } = await supabaseClient.auth.getUser();
+                        user = data?.user;
+                    } else if (typeof supabaseClient.auth.user === 'function') {
+                        user = supabaseClient.auth.user();
+                    }
+
+                    if (user) {
+                        userEmail = user.email || 'N/A';
+                        userId = user.id || null;
+                        if (user.user_metadata) {
+                            userName = user.user_metadata.full_name || user.user_metadata.name || userName;
+                            userPhone = user.user_metadata.phone || userPhone;
+                        }
+                    }
+                } catch (authErr) {
+                    console.warn('Auth user fetch warning:', authErr);
                 }
             }
 
@@ -1160,20 +1176,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Load Tickets for Logged-In User with Owner Replies
+// Load Tickets for Logged-In User with Owner Replies (Safe Auth Handling)
 window.loadMyTickets = async function() {
     const container = document.getElementById('my-tickets-container');
     if (!container) return;
 
     let userEmail = null;
-    if (typeof currentUserProfile !== 'undefined' && currentUserProfile) {
+
+    // 1. Get email from global session profile
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.email) {
         userEmail = currentUserProfile.email;
-    } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth.user()) {
-        userEmail = supabaseClient.auth.user().email;
+    } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+        // 2. Safe Auth query
+        try {
+            if (typeof supabaseClient.auth.getUser === 'function') {
+                const { data } = await supabaseClient.auth.getUser();
+                if (data?.user) userEmail = data.user.email;
+            } else if (typeof supabaseClient.auth.user === 'function') {
+                const u = supabaseClient.auth.user();
+                if (u) userEmail = u.email;
+            }
+        } catch (err) {
+            console.warn('Could not fetch auth user email:', err);
+        }
     }
 
     if (!userEmail) {
-        container.innerHTML = `<p class="text-xs text-rose-400 text-center">Please sign in to view your tickets.</p>`;
+        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Please log in to view your submitted tickets.</p>`;
         return;
     }
 
@@ -1193,10 +1222,9 @@ window.loadMyTickets = async function() {
 
         container.innerHTML = tickets.map(t => {
             const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
 
             return `
-                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs space-y-2">
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs space-y-2 text-left">
                     <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
                         <span class="font-bold text-indigo-300">${t.category}</span>
                         <span class="text-[10px] text-slate-500">${dateStr}</span>
@@ -1219,11 +1247,11 @@ window.loadMyTickets = async function() {
 
     } catch (err) {
         console.warn('Error fetching user tickets:', err);
-        container.innerHTML = `<p class="text-xs text-rose-400 text-center">Failed to load tickets.</p>`;
+        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
     }
 };
 
-// Owner Inbox Handler: Shows Sender Name, Phone, Email & Enables Replying
+// Owner Inbox Handler
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
     if (!tbody) return;
@@ -1270,11 +1298,11 @@ window.loadHelpTickets = async function() {
 
     } catch (err) {
         console.warn('Error loading tickets:', err);
-        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox. Ensure SQL column query was executed.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox. Ensure SQL columns exist in Supabase.</td></tr>`;
     }
 };
 
-// Owner Reply Prompt Function
+// Owner Reply Prompt
 window.replyToTicket = async function(ticketId) {
     const replyText = prompt("Type your official owner response to this user:");
     if (!replyText || replyText.trim() === '') return;
@@ -1293,43 +1321,5 @@ window.replyToTicket = async function(ticketId) {
         loadHelpTickets();
     } catch (err) {
         alert("Could not send reply: " + err.message);
-    }
-};
-
-// Also ensure User Directory loads full names and emails
-window.loadUserDirectory = async function() {
-    const tbody = document.getElementById('user-directory-tbody');
-    if (!tbody) return;
-
-    try {
-        const { data: users, error } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        if (!users || users.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">No registered users found.</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = users.map(u => {
-            let roleBadge = 'bg-slate-800 text-slate-300';
-            if (u.role === 'teacher') roleBadge = 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-            if (u.role === 'student') roleBadge = 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
-            if (u.role === 'admin' || u.role === 'owner') roleBadge = 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
-
-            return `
-                <tr class="hover:bg-slate-800/40 transition-colors">
-                    <td class="py-3 px-4 font-bold text-white">${u.full_name || u.name || 'User'}</td>
-                    <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold border ${roleBadge}">${u.role || 'Member'}</span></td>
-                    <td class="py-3 px-4 font-mono text-slate-300">${u.email || 'N/A'}</td>
-                    <td class="py-3 px-4 text-emerald-400 font-medium">● Active</td>
-                </tr>
-            `;
-        }).join('');
-    } catch (err) {
-        console.warn('Error loading directory:', err);
     }
 };
