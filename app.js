@@ -1286,9 +1286,23 @@ window.closeLiveStream = function() {
     if (modal) modal.classList.add('hidden');
 };
 
+jitsiApi.dispose();
+    } catch (e) {
+      console.warn("Jitsi cleanup warning:", e);
+    }
+    jitsiApi = null;
+  }
+
+  const container = document.getElementById('jitsi-container');
+  if (container) container.innerHTML = '';
+
+  const modal = document.getElementById('live-stream-modal');
+  if (modal) modal.classList.add('hidden');
+};
+
 // Ensure DOM content loaded runs checkSession
 document.addEventListener('DOMContentLoaded', () => {
-    if (typeof checkSession === 'function') {
-        checkSession();
-    }
+  if (typeof checkSession === 'function') {
+    checkSession();
+  }
 });
