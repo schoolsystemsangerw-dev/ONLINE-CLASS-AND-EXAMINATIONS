@@ -1255,36 +1255,74 @@ window.loadMyTickets = async function() {
         container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
     }
 };
-
-// Owner Inbox Handler
+// Owner Inbox Handler: Cross-references profiles table for real user data
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
     if (!tbody) return;
 
     try {
-        const { data: tickets, error } = await supabaseClient
+        // 1. Fetch tickets
+        const { data: tickets, error: ticketErr } = await supabaseClient
             .from('help_tickets')
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (ticketErr) throw ticketErr;
 
         if (!tickets || tickets.length === 0) {
             tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">No suggestions or complaints submitted yet.</td></tr>`;
             return;
         }
 
+        // 2. Fetch profiles to resolve names, emails, and phone numbers
+        const { data: profiles } = await supabaseClient
+            .from('profiles')
+            .select('*');
+
+        const profileMapByEmail = {};
+        const profileMapById = {};
+        if (profiles) {
+            profiles.forEach(p => {
+                if (p.email) profileMapByEmail[p.email.toLowerCase()] = p;
+                if (p.id) profileMapById[p.id] = p;
+            });
+        }
+
         tbody.innerHTML = tickets.map(t => {
             const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+            // Match sender profile
+            const userEmailClean = (t.user_email || '').toLowerCase();
+            const matchedProfile = profileMapById[t.user_id] || profileMapByEmail[userEmailClean] || null;
+
+            // Resolve Name
+            let resolvedName = t.user_name && t.user_name !== 'User' && t.user_name !== 'Anonymous User' ? t.user_name : null;
+            if (!resolvedName && matchedProfile) {
+                resolvedName = matchedProfile.full_name || matchedProfile.name || matchedProfile.username || matchedProfile.display_name;
+            }
+            if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
+                resolvedName = t.user_email.split('@')[0];
+            }
+            if (!resolvedName) resolvedName = 'User';
+
+            // Resolve Email
+            let resolvedEmail = t.user_email && t.user_email !== 'N/A' ? t.user_email : (matchedProfile?.email || 'N/A');
+
+            // Resolve Phone
+            let resolvedPhone = t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : null;
+            if (!resolvedPhone && matchedProfile) {
+                resolvedPhone = matchedProfile.phone || matchedProfile.phone_number || matchedProfile.mobile;
+            }
+            if (!resolvedPhone) resolvedPhone = 'N/A';
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors">
                     <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${dateStr}</td>
                     <td class="py-3 px-4">
-                        <div class="font-bold text-white text-xs">${t.user_name || 'User'}</div>
-                        <div class="text-indigo-300 text-[11px] font-mono">${t.user_email || 'N/A'}</div>
-                        <div class="text-slate-400 text-[10px] font-mono">📞 ${t.phone_number || 'N/A'}</div>
+                        <div class="font-bold text-white text-xs">${resolvedName}</div>
+                        <div class="text-indigo-300 text-[11px] font-mono">${resolvedEmail}</div>
+                        <div class="text-slate-400 text-[10px] font-mono">📞 ${resolvedPhone}</div>
                     </td>
                     <td class="py-3 px-4 font-semibold text-indigo-300">${t.category}</td>
                     <td class="py-3 px-4 text-slate-200 max-w-xs break-words">${t.message}</td>
