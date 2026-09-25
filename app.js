@@ -1030,12 +1030,12 @@ window.openStudentExam = async function(examId) {
 
     modal.classList.remove('hidden');
 };
+
 // Student Auto-Grading Submission Handler
 window.submitStudentExam = async function(examId) {
     const form = document.getElementById('student-exam-form');
     if (!form) return;
 
-    // Fetch original exam details to get correct answer key
     const { data: exam, error } = await supabaseClient
         .from('exams')
         .select('*')
@@ -1056,7 +1056,6 @@ window.submitStudentExam = async function(examId) {
         let expectedAnswer = "";
         let studentAnswer = "";
 
-        // Determine correct answer & extract student response
         if (line.includes('[') && line.includes(']')) {
             const rawOptions = line.substring(line.indexOf('[') + 1, line.indexOf(']')).split('|');
             const correctOpt = rawOptions.find(o => o.includes('*'));
@@ -1079,16 +1078,13 @@ window.submitStudentExam = async function(examId) {
         }
     });
 
-    // Calculate score
     const pointsPerQuestion = exam.total_marks / (totalQuestions || 1);
     const scoreObtained = Math.round(correctCount * pointsPerQuestion);
     const percentage = Math.round((scoreObtained / exam.total_marks) * 100);
 
-    // Get student details safely
     const studentEmail = currentUser?.email || 'student@smartedu.rw';
     const studentName = currentUser?.name || currentUser?.full_name || 'Student';
 
-    // Insert submission record into Supabase
     const { error: subError } = await supabaseClient
         .from('submissions')
         .insert([{
@@ -1108,6 +1104,7 @@ window.submitStudentExam = async function(examId) {
         if (typeof renderStudentDashboard === 'function') renderStudentDashboard();
     }
 };
+
 // Teacher View Exam Results Modal
 window.viewExamResults = async function(examId) {
     const modal = document.getElementById('exam-modal');
@@ -1118,7 +1115,6 @@ window.viewExamResults = async function(examId) {
 
     if (!modal) return;
 
-    // Fetch exam details
     const { data: exam, error: examError } = await supabaseClient
         .from('exams')
         .select('*')
@@ -1130,7 +1126,6 @@ window.viewExamResults = async function(examId) {
         return;
     }
 
-    // Fetch all student submissions for this exam
     const { data: submissions, error: subError } = await supabaseClient
         .from('submissions')
         .select('*')
@@ -1188,6 +1183,7 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
+
 // Universal Cross-Platform Live Classroom (Full-Screen Teacher Display)
 window.startLiveStream = function(classCode, className) {
     const modal = document.getElementById('live-stream-modal');
@@ -1246,23 +1242,20 @@ window.startLiveStream = function(classCode, className) {
         }
     };
 
-    // Initialize Jitsi API
     jitsiApi = new JitsiMeetExternalAPI(domain, options);
 
-    // Lock viewpoint: ensure shared screen/camera dominates
     jitsiApi.addEventListener('videoConferenceJoined', () => {
         jitsiApi.executeCommand('setTileView', false);
     });
 
-    // Automatically maximize screen share whenever content changes
     jitsiApi.addEventListener('largeVideoChanged', () => {
         jitsiApi.executeCommand('setTileView', false);
     });
-}; // <--- Fixed missing closing brace for startLiveStream
+};
 
 // Global Stream Cleanup Function
 window.closeLiveStream = function() {
-    if (jitsiApi) {
+    if (typeof jitsiApi !== 'undefined' && jitsiApi) {
         try {
             jitsiApi.dispose();
         } catch (e) {
