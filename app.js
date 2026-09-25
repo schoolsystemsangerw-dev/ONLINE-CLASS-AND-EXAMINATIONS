@@ -248,114 +248,8 @@ function setupEventListeners() {
 
             Session.setUser(user);
             checkSession();
-// Global Jitsi API Instance
-let jitsiApi = null;
-
-// Universal Cross-Platform Live Classroom Engine
-window.startLiveStream = function(classCode, className) {
-    const modal = document.getElementById('live-stream-modal');
-    const title = document.getElementById('live-stream-title');
-    const container = document.getElementById('jitsi-container');
-
-    if (!modal || !container) {
-        alert("Live class modal container not found in HTML!");
-        return;
+        });
     }
-
-    const isTeacher = currentUser?.role === 'teacher';
-    
-    title.textContent = `Live Class: ${className} (${classCode}) — ${isTeacher ? 'Broadcasting (Host)' : 'Viewer Mode'}`;
-    modal.classList.remove('hidden');
-    container.innerHTML = '';
-
-    const domain = 'meet.element.io';
-    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-    const options = {
-        roomName: roomName,
-        width: '100%',
-        height: '100%',
-        parentNode: container,
-        userInfo: {
-            displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
-        },
-        configOverwrite: {
-            // Disable Pre-Join "Join meeting" Lobby Page completely
-            prejoinPageEnabled: false,
-            prejoinConfig: {
-                enabled: false
-            },
-            
-            // Audio & Video Policies
-            startWithAudioMuted: !isTeacher,
-            startWithVideoMuted: !isTeacher, // Host camera ON, student camera OFF
-            disableDeepLinking: true,
-            mobileAppPromotionsEnabled: false,
-            disableAudioLevels: !isTeacher,
-            
-            // Screen Share Precision & Frame Rate
-            desktopSharingFrameRate: {
-                min: 20,
-                max: 30
-            },
-
-            filmStripOnly: false,
-            disableSelfView: !isTeacher
-        },
-        interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            MOBILE_APP_PROMO: false,
-
-            // Role Toolbar Controls
-            TOOLBAR_BUTTONS: isTeacher ? [
-                'microphone', 'camera', 'desktop', 'fullscreen',
-                'hangup', 'chat', 'raisehand', 'participants-pane'
-            ] : [
-                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
-            ],
-
-            VERTICAL_FILMSTRIP: false,
-            HIDE_KICK_BACKGROUND_MEDIA: true,
-            OPTIMIZE_FOR_MOBILE: true,
-            DISABLE_FOCUS_INDICATOR: true
-        }
-    };
-
-    // Initialize Jitsi
-    jitsiApi = new JitsiMeetExternalAPI(domain, options);
-
-    // Auto-close modal when ending session inside Jitsi frame
-    jitsiApi.addEventListener('videoConferenceLeft', () => {
-        window.closeLiveStream();
-    });
-
-    jitsiApi.addEventListener('videoConferenceJoined', () => {
-        jitsiApi.executeCommand('setTileView', false);
-    });
-
-    jitsiApi.addEventListener('largeVideoChanged', () => {
-        jitsiApi.executeCommand('setTileView', false);
-    });
-};
-
-// Global Stream Cleanup Function (Fixes Leave Stream Button)
-window.closeLiveStream = function() {
-    if (jitsiApi) {
-        try {
-            jitsiApi.dispose();
-        } catch (e) {
-            console.warn("Jitsi cleanup warning:", e);
-        }
-        jitsiApi = null;
-    }
-    
-    const container = document.getElementById('jitsi-container');
-    if (container) container.innerHTML = '';
-
-    const modal = document.getElementById('live-stream-modal');
-    if (modal) modal.classList.add('hidden');
-};
 
     // Logout Handler
     const logoutBtn = document.getElementById('logout-btn');
@@ -434,11 +328,112 @@ window.closeLiveStream = function() {
                 return;
             }
 
-        alert('Successfully joined ' + classData.class_name + '!');
-        if (classCodeInput) classCodeInput.value = '';
-        renderStudentDashboard();
-    });
+            alert('Successfully joined ' + classData.class_name + '!');
+            if (classCodeInput) classCodeInput.value = '';
+            renderStudentDashboard();
+        });
+    }
 }
+
+// Universal Cross-Platform Live Classroom Engine
+window.startLiveStream = function(classCode, className) {
+    const modal = document.getElementById('live-stream-modal');
+    const title = document.getElementById('live-stream-title');
+    const container = document.getElementById('jitsi-container');
+
+    if (!modal || !container) {
+        alert("Live class modal container not found in HTML!");
+        return;
+    }
+
+    const isTeacher = currentUser?.role === 'teacher';
+    
+    title.textContent = `Live Class: ${className} (${classCode}) — ${isTeacher ? 'Broadcasting (Host)' : 'Viewer Mode'}`;
+    modal.classList.remove('hidden');
+    container.innerHTML = '';
+
+    const domain = 'meet.element.io';
+    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+    const options = {
+        roomName: roomName,
+        width: '100%',
+        height: '100%',
+        parentNode: container,
+        userInfo: {
+            displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
+        },
+        configOverwrite: {
+            prejoinPageEnabled: false,
+            prejoinConfig: {
+                enabled: false
+            },
+            startWithAudioMuted: !isTeacher,
+            startWithVideoMuted: !isTeacher,
+            disableDeepLinking: true,
+            mobileAppPromotionsEnabled: false,
+            disableAudioLevels: !isTeacher,
+            desktopSharingFrameRate: {
+                min: 20,
+                max: 30
+            },
+            filmStripOnly: false,
+            disableSelfView: !isTeacher
+        },
+        interfaceConfigOverwrite: {
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            MOBILE_APP_PROMO: false,
+            TOOLBAR_BUTTONS: isTeacher ? [
+                'microphone', 'camera', 'desktop', 'fullscreen',
+                'hangup', 'chat', 'raisehand', 'participants-pane'
+            ] : [
+                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
+            ],
+            VERTICAL_FILMSTRIP: false,
+            HIDE_KICK_BACKGROUND_MEDIA: true,
+            OPTIMIZE_FOR_MOBILE: true,
+            DISABLE_FOCUS_INDICATOR: true
+        }
+    };
+
+    if (typeof JitsiMeetExternalAPI !== 'undefined') {
+        jitsiApi = new JitsiMeetExternalAPI(domain, options);
+
+        jitsiApi.addEventListener('videoConferenceLeft', () => {
+            window.closeLiveStream();
+        });
+
+        jitsiApi.addEventListener('videoConferenceJoined', () => {
+            jitsiApi.executeCommand('setTileView', false);
+        });
+
+        jitsiApi.addEventListener('largeVideoChanged', () => {
+            jitsiApi.executeCommand('setTileView', false);
+        });
+    } else {
+        alert("Jitsi API script not loaded. Check index.html head.");
+    }
+};
+
+// Global Stream Cleanup Function
+window.closeLiveStream = function() {
+    if (typeof jitsiApi !== 'undefined' && jitsiApi) {
+        try {
+            jitsiApi.dispose();
+        } catch (e) {
+            console.warn("Jitsi cleanup warning:", e);
+        }
+        jitsiApi = null;
+    }
+    
+    const container = document.getElementById('jitsi-container');
+    if (container) container.innerHTML = '';
+
+    const modal = document.getElementById('live-stream-modal');
+    if (modal) modal.classList.add('hidden');
+};
+
 // System Owner Dashboard
 async function renderOwnerDashboard() {
     const container = document.getElementById('owner-pending-list');
@@ -497,6 +492,7 @@ window.approveUser = async function(email) {
     renderOwnerDashboard();
     alert(`Account approved successfully!`);
 };
+
 // Teacher Dashboard (with Exam Creation & Results Tracking)
 async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
@@ -528,8 +524,8 @@ async function renderTeacherDashboard() {
                 <div class="space-y-4">
                     <div class="flex items-start justify-between gap-3">
                         <div class="space-y-1">
-                            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-                            <p class="text-xs text-slate-400">${c.subject}</p>
+                            <h4 class="font-bold text-white text-sm">${c.class_name || c.name || 'Class'}</h4>
+                            <p class="text-xs text-slate-400">${c.subject || ''}</p>
                         </div>
                         ${logoUrl ? `
                             <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
@@ -555,7 +551,7 @@ async function renderTeacherDashboard() {
 
                 <!-- Live Stream & Exam Controls -->
                 <div class="space-y-2 pt-2 border-t border-slate-800/80">
-                    <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                    <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name || c.name}')" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
                         <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
                     </button>
 
@@ -634,8 +630,8 @@ async function renderStudentDashboard() {
                 <div class="space-y-4">
                     <div class="flex items-start justify-between gap-3">
                         <div class="space-y-1">
-                            <h4 class="font-bold text-white text-sm">${c.class_name}</h4>
-                            <p class="text-xs text-slate-400">${c.subject}</p>
+                            <h4 class="font-bold text-white text-sm">${c.class_name || c.name || 'Class'}</h4>
+                            <p class="text-xs text-slate-400">${c.subject || ''}</p>
                         </div>
                         ${logoUrl ? `
                             <div class="w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-950 p-1">
@@ -662,7 +658,7 @@ async function renderStudentDashboard() {
 
                 <!-- Live Stream & Student Exam Buttons -->
                 <div class="space-y-2 pt-2 border-t border-slate-800/80">
-                    <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name}')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
+                    <button onclick="window.startLiveStream('${c.class_code}', '${c.class_name || c.name}')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs py-2.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-md">
                         <i data-lucide="video" class="w-4 h-4"></i> Join Live Class
                     </button>
 
@@ -691,177 +687,7 @@ async function renderStudentDashboard() {
 
     if (window.lucide) lucide.createIcons();
 }
-// Render Teacher Active Classes with School Details + Exam Buttons
-window.renderTeacherClasses = async function() {
-    const container = document.getElementById('teacher-classes-cards');
-    if (!container) return;
 
-    const { data: classes, error } = await supabaseClient
-        .from('classes')
-        .select('*')
-        .eq('teacher_email', currentUser.email);
-
-    if (error || !classes || classes.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 col-span-2">No active classes found. Create one above!</p>`;
-        return;
-    }
-
-    // Fetch existing exams for this teacher
-    const { data: exams } = await supabaseClient
-        .from('exams')
-        .select('*')
-        .eq('teacher_email', currentUser.email);
-
-    container.innerHTML = classes.map(c => {
-        const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
-
-        return `
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-xl">
-                <div>
-                    <!-- Header: Class Name & Subject -->
-                    <div class="flex justify-between items-start mb-3">
-                        <div>
-                            <h4 class="font-bold text-white text-lg">${c.name || 'Class'}</h4>
-                            <p class="text-xs text-slate-400 font-semibold">${c.subject || ''}</p>
-                        </div>
-                        <span class="px-2.5 py-1 bg-indigo-950 text-indigo-300 border border-indigo-800/80 rounded-lg text-xs font-mono font-bold">${c.class_code}</span>
-                    </div>
-
-                    <!-- School & Teacher Information Box -->
-                    <div class="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3 text-xs space-y-1 text-slate-300">
-                        <p><span class="text-slate-500 font-semibold">School:</span> ${c.school_name || currentUser.school_name || 'HOPE ACADEMY N/P (NYAGATARE MUKAMA RUGARAMA)'}</p>
-                        <p><span class="text-slate-500 font-semibold">Teacher:</span> ${currentUser.full_name || 'MWESIGWA ANGE PEACE (Teacher)'}</p>
-                        <p><span class="text-slate-500 font-semibold">Phone:</span> ${currentUser.phone || '0794226003'}</p>
-                    </div>
-                </div>
-
-                <!-- Class Code Display -->
-                <div class="bg-slate-950/50 border border-slate-800/60 p-2.5 rounded-xl text-center">
-                    <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">CLASS CODE</p>
-                    <p class="text-xs font-mono font-bold text-indigo-400 tracking-wider">${c.class_code}</p>
-                </div>
-
-                <!-- Live Stream & Exam Action Buttons -->
-                <div class="space-y-2 pt-2 border-t border-slate-800/80">
-                    <!-- Live Stream Button -->
-                    <button onclick="window.startLiveStream('${c.class_code}', '${c.name}')" 
-                            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md">
-                        <i data-lucide="video" class="w-4 h-4"></i> Start Live Class / Screen Share
-                    </button>
-
-                    <!-- Create / Load Exam Button -->
-                    <button onclick="window.openCreateExamModal('${c.class_code}')" 
-                            class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md">
-                        <i data-lucide="file-plus" class="w-4 h-4"></i> Create / Load Exam
-                    </button>
-
-                    <!-- Published Exam Results Buttons -->
-                    ${classExams.map(ex => `
-                        <button onclick="window.viewExamResults(${ex.id})" 
-                                class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 font-semibold rounded-xl text-[11px] transition flex items-center justify-between px-3">
-                            <span class="truncate">📊 ${ex.title} Results</span>
-                            <span class="text-emerald-400 font-bold">View Marks</span>
-                        </button>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    if (window.lucide) lucide.createIcons();
-};
-
-// Render Student Dashboard Cards with "Take Exam" & Result Cards
-window.renderStudentClasses = async function() {
-    const container = document.getElementById('student-classes-cards');
-    if (!container) return;
-
-    // Fetch student enrolments
-    const { data: enrollments, error } = await supabaseClient
-        .from('enrollments')
-        .select('class_code')
-        .eq('student_email', currentUser.email);
-
-    if (error || !enrollments || enrollments.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-400 col-span-full text-center">You have not joined any classes yet. Use the code above to join!</p>`;
-        return;
-    }
-
-    const classCodes = enrollments.map(e => e.class_code);
-
-    // Fetch classes and active exams
-    const { data: classes } = await supabaseClient
-        .from('classes')
-        .select('*')
-        .in('class_code', classCodes);
-
-    const { data: exams } = await supabaseClient
-        .from('exams')
-        .select('*')
-        .in('class_code', classCodes);
-
-    // Fetch student's submitted exams
-    const { data: submissions } = await supabaseClient
-        .from('submissions')
-        .select('*')
-        .eq('student_email', currentUser.email);
-
-    container.innerHTML = classes.map(c => {
-        const classExams = exams ? exams.filter(e => e.class_code === c.class_code) : [];
-
-        return `
-            <div class="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
-                <div>
-                    <div class="flex justify-between items-start mb-1">
-                        <h4 class="font-bold text-white text-base">${c.name}</h4>
-                        <span class="px-2 py-1 bg-slate-900 text-slate-400 border border-slate-800 rounded-lg text-[10px] font-mono">${c.class_code}</span>
-                    </div>
-                    <p class="text-xs text-slate-400">${c.subject}</p>
-                </div>
-
-                <div class="space-y-2 pt-2 border-t border-slate-900">
-                    <h5 class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Class Exams</h5>
-                    
-                    ${classExams.length === 0 ? `<p class="text-[11px] text-slate-500 italic">No exams published yet.</p>` : ''}
-
-                    ${classExams.map(ex => {
-                        const sub = submissions ? submissions.find(s => s.exam_id === ex.id) : null;
-
-                        if (sub) {
-                            // If exam is completed, display score
-                            return `
-                                <div class="flex justify-between items-center bg-emerald-950/40 border border-emerald-800/60 p-2.5 rounded-xl text-xs">
-                                    <div>
-                                        <p class="font-bold text-emerald-300">${ex.title}</p>
-                                        <p class="text-[10px] text-emerald-400">Completed</p>
-                                    </div>
-                                    <span class="px-2.5 py-1 bg-emerald-900 text-emerald-200 font-bold rounded-lg text-xs">
-                                        ${sub.score_obtained} / ${sub.total_marks} (${sub.percentage}%)
-                                    </span>
-                                </div>
-                            `;
-                        } else {
-                            // If exam is not completed, show "Take Exam" button
-                            return `
-                                <button onclick="window.openStudentExam(${ex.id})" 
-                                        class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center justify-between px-3 shadow-md">
-                                    <span class="flex items-center gap-1.5">
-                                        <i data-lucide="edit-3" class="w-4 h-4"></i> ${ex.title}
-                                    </span>
-                                    <span class="bg-emerald-950/80 px-2 py-0.5 rounded text-[10px] text-emerald-200 border border-emerald-700">
-                                        ⏱️ ${ex.duration_minutes}m|vert{}${ex.total_marks} pts
-                                    </span>
-                                </button>
-                            `;
-                        }
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    if (window.lucide) lucide.createIcons();
-};
 // Open Exam Creation Modal for Teachers
 window.openCreateExamModal = function(classCode) {
     const modal = document.getElementById('exam-modal');
@@ -907,21 +733,6 @@ window.openCreateExamModal = function(classCode) {
     modal.classList.remove('hidden');
 };
 
-// Close Exam Modal
-window.closeExamModal = function() {
-    const modal = document.getElementById('exam-modal');
-    if (modal) modal.classList.add('hidden');
-};
-// Global Auto-Re-render Fix
-window.addEventListener('DOMContentLoaded', () => {
-    if (window.currentUser) {
-        if (currentUser.role === 'teacher' && window.renderTeacherClasses) {
-            window.renderTeacherClasses();
-        } else if (currentUser.role === 'student' && window.renderStudentClasses) {
-            window.renderStudentClasses();
-        }
-    }
-});
 // Global Save Exam Handler for Teachers
 window.saveExam = async function(classCode) {
     const title = document.getElementById('exam-title')?.value.trim();
@@ -939,7 +750,7 @@ window.saveExam = async function(classCode) {
         return;
     }
 
-    const { data, error } = await supabaseClient
+    const { error } = await supabaseClient
         .from('exams')
         .insert([{
             class_code: classCode,
@@ -1183,96 +994,3 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
-// Universal Cross-Platform Live Classroom (Full-Screen Teacher Display)
-window.startLiveStream = function(classCode, className) {
-    const modal = document.getElementById('live-stream-modal');
-    const title = document.getElementById('live-stream-title');
-    const container = document.getElementById('jitsi-container');
-
-    if (!modal || !container) {
-        alert("Live class modal container not found in HTML!");
-        return;
-    }
-
-    const isTeacher = currentUser?.role === 'teacher';
-    
-    title.textContent = `Live Class: ${className} (${classCode}) — ${isTeacher ? 'Broadcasting (Host)' : 'Viewer Mode'}`;
-    modal.classList.remove('hidden');
-    container.innerHTML = '';
-
-    const domain = 'meet.element.io';
-    const roomName = `SmartEdu_Class_${classCode.replace(/[^a-zA-Z0-9]/g, '')}`;
-
-    const options = {
-        roomName: roomName,
-        width: '100%',
-        height: '100%',
-        parentNode: container,
-        userInfo: {
-            displayName: `${currentUser?.name || 'User'} (${isTeacher ? 'Teacher / Host' : 'Student'})`
-        },
-        configOverwrite: {
-            startWithAudioMuted: !isTeacher,
-            startWithVideoMuted: !isTeacher,
-            disableDeepLinking: true,
-            mobileAppPromotionsEnabled: false,
-            disableAudioLevels: !isTeacher,
-            desktopSharingFrameRate: {
-                min: 20,
-                max: 30
-            },
-            filmStripOnly: false,
-            disableSelfView: !isTeacher
-        },
-        interfaceConfigOverwrite: {
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_WATERMARK_FOR_GUESTS: false,
-            MOBILE_APP_PROMO: false,
-            TOOLBAR_BUTTONS: isTeacher ? [
-                'microphone', 'camera', 'desktop', 'fullscreen',
-                'hangup', 'chat', 'raisehand', 'participants-pane'
-            ] : [
-                'microphone', 'fullscreen', 'hangup', 'chat', 'raisehand'
-            ],
-            VERTICAL_FILMSTRIP: false,
-            HIDE_KICK_BACKGROUND_MEDIA: true,
-            OPTIMIZE_FOR_MOBILE: true,
-            DISABLE_FOCUS_INDICATOR: true
-        }
-    };
-
-    jitsiApi = new JitsiMeetExternalAPI(domain, options);
-
-    jitsiApi.addEventListener('videoConferenceJoined', () => {
-        jitsiApi.executeCommand('setTileView', false);
-    });
-
-    jitsiApi.addEventListener('largeVideoChanged', () => {
-        jitsiApi.executeCommand('setTileView', false);
-    });
-};
-
-// Global Stream Cleanup Function
-window.closeLiveStream = function() {
-    if (typeof jitsiApi !== 'undefined' && jitsiApi) {
-        try {
-            jitsiApi.dispose();
-        } catch (e) {
-            console.warn("Jitsi cleanup warning:", e);
-        }
-        jitsiApi = null;
-    }
-    
-    const container = document.getElementById('jitsi-container');
-    if (container) container.innerHTML = '';
-
-    const modal = document.getElementById('live-stream-modal');
-    if (modal) modal.classList.add('hidden');
-};
-
-// Ensure DOM content loaded runs checkSession
-document.addEventListener('DOMContentLoaded', () => {
-    if (typeof checkSession === 'function') {
-        checkSession();
-    }
-});
