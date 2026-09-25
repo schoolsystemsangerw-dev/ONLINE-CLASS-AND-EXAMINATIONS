@@ -1286,7 +1286,9 @@ window.closeLiveStream = function() {
     if (modal) modal.classList.add('hidden');
 };
 
-jitsiApi.dispose();
+if (jitsiApi) {
+    try {
+      jitsiApi.dispose();
     } catch (e) {
       console.warn("Jitsi cleanup warning:", e);
     }
