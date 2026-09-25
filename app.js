@@ -433,13 +433,12 @@ window.closeLiveStream = function() {
                 }
                 return;
             }
-alert('Successfully joined ' + classData.class_name + '!');
-            if (classCodeInput) classCodeInput.value = '';
-            renderStudentDashboard();
-        });
-    }
-}
 
+        alert('Successfully joined ' + classData.class_name + '!');
+        if (classCodeInput) classCodeInput.value = '';
+        renderStudentDashboard();
+    });
+}
 // System Owner Dashboard
 async function renderOwnerDashboard() {
     const container = document.getElementById('owner-pending-list');
