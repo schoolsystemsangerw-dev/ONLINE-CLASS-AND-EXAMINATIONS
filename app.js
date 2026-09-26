@@ -1290,19 +1290,26 @@ window.loadHelpTickets = async function() {
             const statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
 
             const emailClean = (t.user_email || '').toLowerCase().trim();
-            const matchedProfile = profileMapById[String(t.user_id)] || profileMapByEmail[emailClean];
+            const matchedProfile = (t.user_id ? profileMapById[String(t.user_id)] : null) || profileMapByEmail[emailClean];
 
-            let resolvedName = matchedProfile?.name || matchedProfile?.full_name || null;
-            if (!resolvedName && t.user_name && !['User', 'Anonymous User', 'Anonymous', 'Guest User', 'N/A'].includes(t.user_name.trim())) {
+            // Primary: Profile lookup
+            let resolvedName = matchedProfile?.name || matchedProfile?.full_name || matchedProfile?.username || null;
+            
+            // Secondary: Ticket user_name if valid and not a generic placeholder
+            if (!resolvedName && t.user_name && !['Registered User', 'User', 'Anonymous User', 'Anonymous', 'Guest User', 'N/A'].includes(t.user_name.trim())) {
                 resolvedName = t.user_name;
             }
-            if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
+            
+            // Tertiary: Parse email string
+            if (!resolvedName && t.user_email && t.user_email !== 'N/A' && t.user_email !== 'No Email') {
                 resolvedName = t.user_email.split('@')[0];
             }
-            if (!resolvedName) resolvedName = 'Guest User';
 
-            const resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'No Email');
-            const resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'No Phone');
+            // Fallback
+            if (!resolvedName) resolvedName = 'Registered User';
+
+            const resolvedEmail = matchedProfile?.email || (t.user_email && !['N/A', 'No Email'].includes(t.user_email) ? t.user_email : 'No Email');
+            const resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && !['N/A', 'No Phone'].includes(t.phone_number) ? t.phone_number : 'No Phone');
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800/50">
