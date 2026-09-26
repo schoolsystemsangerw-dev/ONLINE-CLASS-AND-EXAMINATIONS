@@ -1019,6 +1019,12 @@ window.viewExamResults = async function(examId) {
 // HELP DESK, MODAL & USER DIRECTORY MODULE
 // ==========================================
 
+// Helper function: Standard UUID format checker
+function isValidUUID(str) {
+    if (!str) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(str).trim());
+}
+
 // 1. Toggle Help Desk Modal Visibility & Auto-fill inputs
 window.toggleHelpModal = function(show) {
     const modal = document.getElementById('help-desk-modal');
@@ -1148,23 +1154,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('Auth session check warning:', err);
             }
 
-            // Step D: Match against profiles table for fallbacks
+            // Step D: Match against profiles table for fallbacks (Safeguarded against non-UUID user_ids)
             if (userId || userEmail) {
                 try {
                     let query = supabaseClient.from('profiles').select('*');
-                    if (userId) {
+                    
+                    if (userId && isValidUUID(userId)) {
                         query = query.eq('id', userId);
-                    } else {
+                    } else if (userEmail) {
                         query = query.eq('email', userEmail);
+                    } else {
+                        query = null;
                     }
 
-                    const { data: profile } = await query.maybeSingle();
-
-                    if (profile) {
-                        userId = profile.id || userId;
-                        if (!userName) userName = profile.name || profile.full_name || '';
-                        if (!userEmail) userEmail = profile.email || '';
-                        if (!userPhone) userPhone = profile.phone || profile.phone_number || '';
+                    if (query) {
+                        const { data: profile } = await query.maybeSingle();
+                        if (profile) {
+                            userId = profile.id || userId;
+                            if (!userName) userName = profile.name || profile.full_name || '';
+                            if (!userEmail) userEmail = profile.email || '';
+                            if (!userPhone) userPhone = profile.phone || profile.phone_number || '';
+                        }
                     }
                 } catch (profErr) {
                     console.warn('Profiles query warning:', profErr);
@@ -1176,11 +1186,14 @@ document.addEventListener('DOMContentLoaded', () => {
             userEmail = userEmail || 'N/A';
             userPhone = userPhone || 'N/A';
 
+            // FIX: Ensure user_id sent to Supabase is strictly a valid UUID or NULL to avoid 22P02 database error
+            const safeUserId = isValidUUID(userId) ? String(userId) : null;
+
             try {
                 const { error } = await supabaseClient
                     .from('help_tickets')
                     .insert([{
-                        user_id: userId ? String(userId) : null,
+                        user_id: safeUserId,
                         user_name: userName,
                         user_email: userEmail,
                         phone_number: userPhone,
@@ -1317,7 +1330,7 @@ window.loadHelpTickets = async function() {
         const profileMapByEmail = {};
         if (profiles) {
             profiles.forEach(p => {
-                if (p.id) profileMapById[String(p.id)] = p;
+                if (p.id && isValidUUID(p.id)) profileMapById[String(p.id)] = p;
                 if (p.email) profileMapByEmail[p.email.toLowerCase().trim()] = p;
             });
         }
