@@ -1503,19 +1503,62 @@ window.loadMyTickets = async function() {
         }
     }
 
-    // Fallback: Prompt user to enter their email if no active session or stored input exists
-    if (!userEmail) {
-        userEmail = prompt("Enter the email address you used when submitting your ticket:");
-        if (userEmail && userEmail.trim()) {
-            userEmail = userEmail.trim();
-            const emailInput = document.getElementById('help-user-email');
-            if (emailInput) emailInput.value = userEmail;
-            try {
-                localStorage.setItem('currentUser', JSON.stringify({ email: userEmail }));
-            } catch (e) {}
-        }
+ // Function to handle custom ticket modal popup
+function openTicketCheckModal() {
+    // Prevent duplicate modals
+    document.getElementById('ticket-modal')?.remove();
+
+    const modalHtml = `
+        <div id="ticket-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span>💬</span> Support Ticket Lookup
+                    </h3>
+                    <button onclick="document.getElementById('ticket-modal').remove()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+                </div>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Enter the email address you used when submitting your ticket:
+                </p>
+                <input type="email" id="modal-user-email-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition" placeholder="yourname@school.com" onkeyup="if(event.key==='Enter') window.submitTicketEmailFallback()">
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="document.getElementById('ticket-modal').remove()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition">Cancel</button>
+                    <button onclick="window.submitTicketEmailFallback()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition shadow-lg">Submit</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    setTimeout(() => document.getElementById('modal-user-email-input')?.focus(), 50);
+}
+
+// Handler executed when user submits their email inside the modal
+window.submitTicketEmailFallback = function() {
+    const emailInput = document.getElementById('modal-user-email-input');
+    let enteredEmail = emailInput?.value.trim();
+
+    if (!enteredEmail) {
+        alert("Please enter a valid email address.");
+        return;
     }
 
+    // Populate main input element if present
+    const mainEmailInput = document.getElementById('help-user-email');
+    if (mainEmailInput) mainEmailInput.value = enteredEmail;
+
+    // Save to localStorage
+    try {
+        localStorage.setItem('currentUser', JSON.stringify({ email: enteredEmail }));
+    } catch (e) {}
+
+    // Close modal
+    document.getElementById('ticket-modal')?.remove();
+
+    // Re-trigger your ticket fetching function with the validated email
+    if (typeof fetchTickets === 'function') {
+        fetchTickets(enteredEmail);
+    }
+};
     // Display message if still no email is provided
     if (!userEmail) {
         container.innerHTML = `
