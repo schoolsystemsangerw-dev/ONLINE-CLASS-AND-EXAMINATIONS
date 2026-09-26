@@ -1009,9 +1009,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (helpForm) {
         helpForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const category = document.getElementById('help-category').value;
-            const message = document.getElementById('help-message').value;
-            
+            const category = document.getElementById('help-category')?.value || 'General Inquiry';
+            const message = document.getElementById('help-message')?.value || '';
+
+            if (!message.trim()) {
+                alert('Please enter a message before submitting.');
+                return;
+            }
+
             let userEmail = 'Anonymous User';
             try {
                 if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
@@ -1019,7 +1024,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (session && session.user && session.user.email) {
                         userEmail = session.user.email;
                     } else {
-                        // Fallback to localStorage if logged in via custom session store
                         const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
                         if (storedUser.email) {
                             userEmail = storedUser.email;
@@ -1028,7 +1032,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.warn('Auth user fetch warning:', err);
-            }
             }
 
             try {
@@ -1041,19 +1044,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (error) throw error;
 
                 alert('✅ Complaint/Suggestion successfully sent to Owner Dashboard!');
-                document.getElementById('help-message').value = '';
-                toggleHelpModal(false);
-
-                if (typeof loadHelpTickets === 'function') loadHelpTickets();
-
+                if (document.getElementById('help-message')) {
+                    document.getElementById('help-message').value = '';
+                }
+                if (typeof toggleHelpModal === 'function') {
+                    toggleHelpModal(false);
+                }
             } catch (err) {
-                console.error('Error submitting ticket:', err);
-                alert('Submission error: ' + (err.message || 'Database connection issue'));
+                console.error('Submission error:', err);
+                alert('Error submitting ticket: ' + (err.message || 'Database error'));
             }
         });
     }
 });
-
 // Load User Directory for Owner Panel
 window.loadUserDirectory = async function() {
     const tbody = document.getElementById('user-directory-tbody');
