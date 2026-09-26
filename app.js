@@ -1186,7 +1186,20 @@ document.addEventListener('DOMContentLoaded', () => {
             userEmail = userEmail || 'N/A';
             userPhone = userPhone || 'N/A';
 
-            // FIX: Ensure user_id sent to Supabase is strictly a valid UUID or NULL to avoid 22P02 database error
+            // Store email in local session so unauthenticated users can auto-retrieve replies without logging in
+            if (userEmail && userEmail !== 'N/A') {
+                try {
+                    const existingSession = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                    existingSession.email = userEmail;
+                    if (userName) existingSession.name = userName;
+                    if (userPhone) existingSession.phone = userPhone;
+                    localStorage.setItem('currentUser', JSON.stringify(existingSession));
+                } catch (storeErr) {
+                    console.warn('Could not persist submission session email:', storeErr);
+                }
+            }
+
+            // Ensure user_id sent to Supabase is strictly a valid UUID or NULL to avoid 22P02 database error
             const safeUserId = isValidUUID(userId) ? String(userId) : null;
 
             try {
@@ -1233,16 +1246,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// 5. Render Logged-In User's Sent Tickets
+// 5. Render User's Sent Tickets & Admin Replies
 window.loadMyTickets = async function() {
     const container = document.getElementById('my-tickets-container');
     if (!container) return;
 
     let userEmail = null;
 
+    // Check active Javascript profile object
     if (typeof currentUserProfile !== 'undefined' && currentUserProfile?.email) {
         userEmail = currentUserProfile.email;
-    } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+    } 
+    
+    // Check Supabase Auth active session
+    if (!userEmail && typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
         try {
             const { data } = await supabaseClient.auth.getUser();
             if (data?.user) userEmail = data.user.email;
@@ -1251,50 +1268,99 @@ window.loadMyTickets = async function() {
         }
     }
 
+    // Check local storage session
     if (!userEmail) {
         const storedUser = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
         if (storedUser.email) userEmail = storedUser.email;
     }
 
+    // Fallback: Check if the user entered an email in the New Submission form tab input
     if (!userEmail) {
-        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Please log in to view your submitted tickets.</p>`;
+        const emailInput = document.getElementById('help-user-email');
+        if (emailInput && emailInput.value.trim()) {
+            userEmail = emailInput.value.trim();
+        }
+    }
+
+    // Fallback: Prompt user to enter their email if no active session or stored input exists
+    if (!userEmail) {
+        userEmail = prompt("Enter the email address you used when submitting your ticket:");
+        if (userEmail && userEmail.trim()) {
+            userEmail = userEmail.trim();
+            const emailInput = document.getElementById('help-user-email');
+            if (emailInput) emailInput.value = userEmail;
+            try {
+                localStorage.setItem('currentUser', JSON.stringify({ email: userEmail }));
+            } catch (e) {}
+        }
+    }
+
+    // Display message if still no email is provided
+    if (!userEmail) {
+        container.innerHTML = `
+            <div class="text-center py-6 space-y-2">
+                <p class="text-xs text-rose-400 font-semibold">Email required to view submitted tickets.</p>
+                <p class="text-[11px] text-slate-400">Please enter your email address in the form tab or log in.</p>
+                <button onclick="switchHelpTab('new')" class="mt-2 text-[11px] bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-1 rounded hover:bg-indigo-600/50">Go to Form</button>
+            </div>
+        `;
         return;
     }
 
     try {
+        container.innerHTML = `<p class="text-xs text-indigo-400 text-center py-4">Checking tickets for <span class="font-mono">${userEmail}</span>...</p>`;
+
+        // Fetch tickets using case-insensitive email matching (.ilike)
         const { data: tickets, error } = await supabaseClient
             .from('help_tickets')
             .select('*')
-            .eq('user_email', userEmail)
+            .ilike('user_email', userEmail.trim())
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
         if (!tickets || tickets.length === 0) {
-            container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">You have not submitted any suggestions or complaints yet.</p>`;
+            container.innerHTML = `
+                <div class="text-center py-6 space-y-2">
+                    <p class="text-xs text-slate-400">No tickets found for <span class="text-indigo-300 font-mono">${userEmail}</span>.</p>
+                    <button onclick="switchHelpTab('new')" class="text-[11px] text-indigo-400 underline hover:text-indigo-300">Submit a ticket</button>
+                </div>
+            `;
             return;
         }
 
-        container.innerHTML = tickets.map(t => {
+        container.innerHTML = `
+            <div class="mb-3 text-[11px] text-slate-400 flex justify-between items-center px-1 border-b border-slate-800 pb-2">
+                <span>Showing tickets for: <strong class="text-indigo-300 font-mono">${userEmail}</strong></span>
+                <button onclick="localStorage.removeItem('currentUser'); window.loadMyTickets();" class="text-slate-500 hover:text-slate-300 underline text-[10px]">Use Different Email</button>
+            </div>
+        ` + tickets.map(t => {
             const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const isResolved = t.status === 'Resolved';
 
             return `
-                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs space-y-2 text-left mb-3">
+                <div class="bg-slate-950 border ${isResolved ? 'border-emerald-800/40' : 'border-slate-800'} rounded-xl p-4 text-xs space-y-2 text-left mb-3 shadow-md">
                     <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                        <span class="font-bold text-indigo-300">${t.category}</span>
-                        <span class="text-[10px] text-slate-500">${dateStr}</span>
+                        <span class="font-bold text-indigo-300">${t.category || 'General Inquiry'}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] ${isResolved ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'} px-2 py-0.5 rounded border uppercase font-bold text-[9px]">${t.status || 'Pending'}</span>
+                            <span class="text-[10px] text-slate-500 font-mono">${dateStr}</span>
+                        </div>
                     </div>
-                    <p class="text-slate-200"><span class="text-slate-400 font-semibold">Your Message:</span> ${t.message}</p>
+                    
+                    <p class="text-slate-200 mt-1"><span class="text-slate-400 font-semibold">Your Message:</span> ${t.message}</p>
                     
                     ${t.admin_response ? `
-                        <div class="mt-3 bg-indigo-950/40 border border-indigo-800/50 p-3 rounded-lg text-indigo-100">
+                        <div class="mt-3 bg-indigo-950/50 border border-indigo-700/60 p-3 rounded-lg text-indigo-100 space-y-1">
                             <p class="font-extrabold text-[11px] text-indigo-300 flex items-center gap-1">
-                                🛡️ System Owner Reply:
+                                🛡️ System Owner / Admin Reply:
                             </p>
-                            <p class="mt-1 text-slate-200">${t.admin_response}</p>
+                            <p class="text-slate-200 text-xs pl-1">${t.admin_response}</p>
                         </div>
                     ` : `
-                        <div class="text-[11px] text-slate-500 italic mt-1">⏳ Awaiting owner response...</div>
+                        <div class="text-[11px] text-amber-400/80 italic mt-2 flex items-center gap-1">
+                            ⏳ Status: Pending response from system management...
+                        </div>
                     `}
                 </div>
             `;
@@ -1302,7 +1368,7 @@ window.loadMyTickets = async function() {
 
     } catch (err) {
         console.warn('Error fetching user tickets:', err);
-        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
+        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets: ${err.message || 'Database error'}</p>`;
     }
 };
 
