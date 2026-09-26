@@ -1120,7 +1120,11 @@ window.switchHelpTab = function(tab) {
         if (btnNew) btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
     }
 };
-// Help Desk Form Submit: Directly queries 'profiles' table using active user session or localStorage
+// ==========================================
+// HELP DESK & USER SUGGESTIONS SYSTEM
+// ==========================================
+
+// 1. Help Desk Form Submit: Queries Supabase Auth, localStorage, and 'profiles' table
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
@@ -1140,16 +1144,16 @@ document.addEventListener('DOMContentLoaded', () => {
             let userId = null;
 
             try {
-                // 1. First attempt: Check Supabase Auth Session
-                const { data: authData } = await supabaseClient.auth.getUser();
-                const activeUser = authData?.user;
+                // First attempt: Check Supabase Auth Session
+                if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+                    const { data: authData } = await supabaseClient.auth.getUser();
+                    if (authData?.user) {
+                        userId = authData.user.id;
+                        userEmail = authData.user.email || userEmail;
+                    }
+                }
 
-                if (activeUser) {
-                    userId = activeUser.id;
-                    userEmail = activeUser.email || userEmail;
-                } 
-
-                // 2. Fallback: Check localStorage or global state if Supabase Auth is null
+                // Fallback: Check localStorage or global state if Supabase Auth is null
                 if (!userId) {
                     const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
                     userId = storedUser.id || storedUser.user_id || null;
@@ -1158,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     userPhone = storedUser.phone || storedUser.phone_number || (typeof currentUserProfile !== 'undefined' && currentUserProfile?.phone) || userPhone;
                 }
 
-                // 3. Query profiles table if userId or email is available
+                // Query public.profiles table if userId or email is available
                 if (userId || (userEmail && userEmail !== 'N/A')) {
                     let query = supabaseClient.from('profiles').select('*');
                     if (userId) {
@@ -1196,9 +1200,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (error) throw error;
 
                 alert('✅ Submitted successfully!');
-                document.getElementById('help-message').value = '';
+                const msgInput = document.getElementById('help-message');
+                if (msgInput) msgInput.value = '';
+                
                 if (typeof toggleHelpModal === 'function') toggleHelpModal(false);
-                if (typeof loadHelpTickets === 'function') loadHelpTickets();
+                if (typeof window.loadHelpTickets === 'function') window.loadHelpTickets();
+                if (typeof window.loadMyTickets === 'function') window.loadMyTickets();
 
             } catch (err) {
                 console.error('Submission error:', err);
@@ -1206,8 +1213,171 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Auto-load Owner Tickets on page load if container exists
+    if (document.getElementById('help-tickets-tbody') && typeof window.loadHelpTickets === 'function') {
+        window.loadHelpTickets();
+    }
+    
+    // Auto-load User Tickets on page load if container exists
+    if (document.getElementById('my-tickets-container') && typeof window.loadMyTickets === 'function') {
+        window.loadMyTickets();
+    }
 });
-// Global Reply Handler: Safely tied to window for inline HTML onclick calls
+
+// 2. Load Tickets for Logged-In User with Owner Replies (Attached to window)
+window.loadMyTickets = async function() {
+    const container = document.getElementById('my-tickets-container');
+    if (!container) return;
+
+    let userEmail = null;
+
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.email) {
+        userEmail = currentUserProfile.email;
+    } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
+        try {
+            if (typeof supabaseClient.auth.getUser === 'function') {
+                const { data } = await supabaseClient.auth.getUser();
+                if (data?.user) userEmail = data.user.email;
+            }
+        } catch (err) {
+            console.warn('Could not fetch auth user email:', err);
+        }
+    }
+
+    if (!userEmail) {
+        const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (storedUser.email) userEmail = storedUser.email;
+    }
+
+    if (!userEmail) {
+        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Please log in to view your submitted tickets.</p>`;
+        return;
+    }
+
+    try {
+        const { data: tickets, error } = await supabaseClient
+            .from('help_tickets')
+            .select('*')
+            .eq('user_email', userEmail)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!tickets || tickets.length === 0) {
+            container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">You have not submitted any suggestions or complaints yet.</p>`;
+            return;
+        }
+
+        container.innerHTML = tickets.map(t => {
+            const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            return `
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs space-y-2 text-left mb-3">
+                    <div class="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                        <span class="font-bold text-indigo-300">${t.category}</span>
+                        <span class="text-[10px] text-slate-500">${dateStr}</span>
+                    </div>
+                    <p class="text-slate-200"><span class="text-slate-400 font-semibold">Your Message:</span> ${t.message}</p>
+                    
+                    ${t.admin_response ? `
+                        <div class="mt-3 bg-indigo-950/40 border border-indigo-800/50 p-3 rounded-lg text-indigo-100">
+                            <p class="font-extrabold text-[11px] text-indigo-300 flex items-center gap-1">
+                                🛡️ System Owner Reply:
+                            </p>
+                            <p class="mt-1 text-slate-200">${t.admin_response}</p>
+                        </div>
+                    ` : `
+                        <div class="text-[11px] text-slate-500 italic mt-1">⏳ Awaiting owner response...</div>
+                    `}
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.warn('Error fetching user tickets:', err);
+        container.innerHTML = `<p class="text-xs text-rose-400 text-center py-4">Failed to load tickets. Please check your network connection.</p>`;
+    }
+};
+
+// 3. Owner Inbox Handler: Renders sender info with cross-matching against public.profiles (Attached to window)
+window.loadHelpTickets = async function() {
+    const tbody = document.getElementById('help-tickets-tbody');
+    if (!tbody) return;
+
+    try {
+        const { data: tickets, error: ticketErr } = await supabaseClient
+            .from('help_tickets')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (ticketErr) throw ticketErr;
+
+        if (!tickets || tickets.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-slate-500">No suggestions or complaints submitted yet.</td></tr>`;
+            return;
+        }
+
+        const { data: profiles } = await supabaseClient.from('profiles').select('*');
+
+        const profileMapById = {};
+        const profileMapByEmail = {};
+        if (profiles) {
+            profiles.forEach(p => {
+                if (p.id) profileMapById[p.id] = p;
+                if (p.email) profileMapByEmail[p.email.toLowerCase().trim()] = p;
+            });
+        }
+
+        tbody.innerHTML = tickets.map(t => {
+            const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+
+            const emailClean = (t.user_email || '').toLowerCase().trim();
+            const matchedProfile = profileMapById[t.user_id] || profileMapByEmail[emailClean];
+
+            let resolvedName = matchedProfile?.name || matchedProfile?.full_name || null;
+            if (!resolvedName && t.user_name && !['User', 'Anonymous User', 'Anonymous', 'N/A'].includes(t.user_name.trim())) {
+                resolvedName = t.user_name;
+            }
+            if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
+                resolvedName = t.user_email.split('@')[0];
+            }
+            if (!resolvedName) resolvedName = 'Anonymous User';
+
+            let resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'N/A');
+            let resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'N/A');
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800/50">
+                    <td class="py-3 px-4 text-slate-400 font-mono text-[11px]">${dateStr}</td>
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-white text-xs">${resolvedName}</div>
+                        <div class="text-indigo-300 text-[11px] font-mono">${resolvedEmail}</div>
+                        <div class="text-slate-400 text-[10px] font-mono">📞 ${resolvedPhone}</div>
+                    </td>
+                    <td class="py-3 px-4 font-semibold text-indigo-300">${t.category}</td>
+                    <td class="py-3 px-4 text-slate-200 max-w-xs break-words">${t.message}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded-md text-[10px] uppercase font-bold border ${statusBadge}">${t.status || 'Pending'}</span>
+                        ${t.admin_response ? `<div class="text-[10px] text-slate-400 mt-1.5 max-w-xs italic border-l-2 border-indigo-500 pl-1.5">💬 ${t.admin_response}</div>` : ''}
+                    </td>
+                    <td class="py-3 px-4">
+                        <button onclick="replyToTicket('${t.id}')" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded text-[11px] font-semibold transition-colors block">
+                            💬 Reply
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.warn('Error loading tickets:', err);
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox.</td></tr>`;
+    }
+};
+
+// 4. Global Reply Handler (Attached to window for inline HTML onclick calls)
 window.replyToTicket = async function(ticketId) {
     const response = prompt("Enter your reply message:");
     if (!response || !response.trim()) return;
@@ -1224,8 +1394,8 @@ window.replyToTicket = async function(ticketId) {
         if (error) throw error;
 
         alert("✅ Reply submitted successfully!");
-        if (typeof loadHelpTickets === 'function') {
-            loadHelpTickets();
+        if (typeof window.loadHelpTickets === 'function') {
+            window.loadHelpTickets();
         } else {
             location.reload();
         }
