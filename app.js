@@ -170,16 +170,21 @@ function setupAuthTabs() {
 
 // Event Listeners & Form Handlers
 function setupEventListeners() {
-    // Registration Handler
+// Registration Handler
     const registerForm = document.getElementById('register-form');
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const role = document.getElementById('reg-role').value;
-            const name = document.getElementById('reg-name').value;
-            const email = document.getElementById('reg-email').value;
-            const phone = document.getElementById('reg-phone').value;
-            const password = document.getElementById('reg-password').value;
+            const role = document.getElementById('reg-role')?.value || '';
+            const name = document.getElementById('reg-name')?.value || '';
+            const email = document.getElementById('reg-email')?.value || '';
+            const phone = document.getElementById('reg-phone')?.value || '';
+            const password = document.getElementById('reg-password')?.value || '';
+
+            if (!email || !name) {
+                alert('Please enter your name and email address.');
+                return;
+            }
 
             // Check if profile exists
             const { data: existingUser } = await supabaseClient
@@ -194,27 +199,42 @@ function setupEventListeners() {
             }
 
             const rawLogoUrl = role === 'teacher' ? (document.getElementById('reg-school-logo')?.value || '') : '';
+            const finalRole = email.toLowerCase() === MASTER_ADMIN_EMAIL ? 'owner' : role;
 
+            // Constructed DB record mapping both naming standards (name/full_name & phone/phone_number)
             const newUser = {
-                role: email.toLowerCase() === MASTER_ADMIN_EMAIL ? 'owner' : role,
-                name,
-                email,
-                phone,
-                password,
+                role: finalRole,
+                name: name,
+                full_name: name,
+                email: email,
+                phone: phone,
+                phone_number: phone,
+                password: password,
                 account_status: role === 'teacher' ? 'pending' : 'active',
                 school: role === 'teacher' ? (document.getElementById('reg-school')?.value || '') : '',
                 school_location: role === 'teacher' ? (document.getElementById('reg-school-location')?.value || '') : '',
                 position: role === 'teacher' ? (document.getElementById('reg-position')?.value || '') : '',
-                school_logo_url: getDirectImageUrl(rawLogoUrl),
+                school_logo_url: typeof getDirectImageUrl === 'function' ? getDirectImageUrl(rawLogoUrl) : rawLogoUrl,
                 payment_ref: role === 'teacher' ? (document.getElementById('reg-payment-ref')?.value || '') : ''
             };
 
-            const { error } = await supabaseClient.from('profiles').insert([newUser]);
+            const { data: insertedData, error } = await supabaseClient
+                .from('profiles')
+                .insert([newUser])
+                .select();
 
             if (error) {
                 alert('Registration failed: ' + error.message);
                 return;
             }
+
+            // Extract inserted user profile or build fallback state
+            const savedProfile = (insertedData && insertedData[0]) ? insertedData[0] : newUser;
+
+            // Sync user details to session & local storage immediately
+            localStorage.setItem('currentUser', JSON.stringify(savedProfile));
+            localStorage.setItem('user', JSON.stringify(savedProfile));
+            window.currentUserProfile = savedProfile;
 
             if (role === 'teacher') {
                 alert('Teacher account registered! Pending payment approval by System Owner.');
@@ -222,10 +242,11 @@ function setupEventListeners() {
                 alert('Account created successfully! You can now log in.');
             }
 
+            // Reset form inputs & switch to login tab
+            registerForm.reset();
             document.getElementById('tab-login')?.click();
         });
     }
-
     // Login Handler
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
