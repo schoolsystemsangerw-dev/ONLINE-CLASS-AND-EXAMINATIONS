@@ -513,7 +513,53 @@ window.approveUser = async function(email) {
     renderOwnerDashboard();
     alert(`Account approved successfully!`);
 };
-// Teacher Dashboard (with Exam Creation & Results Tracking)
+// =================================================================
+// TEACHER & STUDENT DASHBOARD MODULE (EXAMS & MARKING GUIDES)
+// =================================================================
+
+// Helper function: Render inline Markdown images & Base64 Data URLs to HTML <img> elements
+function formatExamContent(text) {
+    if (!text) return '';
+    return text.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => {
+        return `<div class="my-2 flex justify-center">
+                    <img src="${url}" alt="${alt}" class="max-h-60 rounded-lg border border-slate-700 object-contain shadow-md" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\"text-xs text-rose-400 italic\">[Image failed to load]</span>';"/>
+                </div>`;
+    });
+}
+
+// Attach image pasting listener to any textarea or input element dynamically
+function attachImagePasteListener(element) {
+    if (!element) return;
+    element.addEventListener('paste', function (event) {
+        const items = (event.clipboardData || event.originalEvent.clipboardData)?.items;
+        if (!items) return;
+
+        for (let item of items) {
+            if (item.type.indexOf('image') === 0) {
+                event.preventDefault();
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const base64Image = e.target.result;
+                    const imageTag = `\n![pasted_image](${base64Image})\n`;
+
+                    const startPos = element.selectionStart || element.value.length;
+                    const endPos = element.selectionEnd || element.value.length;
+                    const currentValue = element.value;
+
+                    element.value = currentValue.substring(0, startPos) + imageTag + currentValue.substring(endPos);
+                    element.selectionStart = element.selectionEnd = startPos + imageTag.length;
+                };
+
+                reader.readAsDataURL(blob);
+                break;
+            }
+        }
+    });
+}
+
+// 1. Teacher Dashboard Renderer
 async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
     if (!container) return;
@@ -593,7 +639,7 @@ async function renderTeacherDashboard() {
     if (window.lucide) lucide.createIcons();
 }
 
-// Student Dashboard (with Active Exam Session, Score Feedback & Marking Guide View)
+// 2. Student Dashboard Renderer
 async function renderStudentDashboard() {
     const container = document.getElementById('student-classes-cards');
     if (!container) return;
@@ -708,7 +754,7 @@ async function renderStudentDashboard() {
     if (window.lucide) lucide.createIcons();
 }
 
-// Open Exam Creation Modal for Teachers
+// 3. Open Exam Creation Modal for Teachers
 window.openCreateExamModal = function(classCode) {
     const modal = document.getElementById('exam-modal');
     const title = document.getElementById('exam-modal-title');
@@ -739,7 +785,7 @@ window.openCreateExamModal = function(classCode) {
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-400 mb-1">Exam Questions (One per line)</label>
-                <p class="text-[11px] text-slate-500 mb-2">Use {Answer} for fill-in answers or [Option A* | Option B] for multiple choice.</p>
+                <p class="text-[11px] text-slate-500 mb-2">Use {Answer} for fill-in answers or [Option A* | Option B] for multiple choice. You can paste images directly into this text field.</p>
                 <textarea id="exam-questions" rows="6" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white font-mono" placeholder="1. What is the capital of Rwanda? {Kigali}&#10;2. Water boils at [100°C* | 50°C | 0°C]."></textarea>
             </div>
         </form>
@@ -751,9 +797,14 @@ window.openCreateExamModal = function(classCode) {
     `;
 
     modal.classList.remove('hidden');
+
+    // Attach image paste listener to the questions textarea
+    setTimeout(() => {
+        attachImagePasteListener(document.getElementById('exam-questions'));
+    }, 50);
 };
 
-// Global Save Exam Handler for Teachers
+// 4. Global Save Exam Handler for Teachers
 window.saveExam = async function(classCode) {
     const title = document.getElementById('exam-title')?.value.trim();
     const duration = parseInt(document.getElementById('exam-duration')?.value || '30');
@@ -790,13 +841,13 @@ window.saveExam = async function(classCode) {
     }
 };
 
-// Global Close Modal Handler
+// 5. Global Close Modal Handler
 window.closeExamModal = function() {
     const modal = document.getElementById('exam-modal');
     if (modal) modal.classList.add('hidden');
 };
 
-// Student Take Exam Modal Launcher
+// 6. Student Take Exam Modal Launcher
 window.openStudentExam = async function(examId) {
     const { data: exam, error } = await supabaseClient
         .from('exams')
@@ -829,13 +880,13 @@ window.openStudentExam = async function(examId) {
             const qText = line.split('[')[0].trim();
             const rawOptions = line.substring(line.indexOf('[') + 1, line.indexOf(']')).split('|');
             
-            html += `<p class="text-xs font-bold text-white">${qText}</p><div class="space-y-1 mt-2">`;
+            html += `<div class="text-xs font-bold text-white">${formatExamContent(qText)}</div><div class="space-y-1 mt-2">`;
             rawOptions.forEach(opt => {
                 const cleanOpt = opt.replace('*', '').trim();
                 html += `
                     <label class="flex items-center gap-2 text-xs text-slate-300 p-2 bg-slate-900 rounded-lg border border-slate-800/80 cursor-pointer hover:bg-slate-800">
                         <input type="radio" name="q_${idx}" value="${cleanOpt}" class="text-indigo-600">
-                        ${cleanOpt}
+                        ${formatExamContent(cleanOpt)}
                     </label>
                 `;
             });
@@ -843,11 +894,11 @@ window.openStudentExam = async function(examId) {
         } else if (line.includes('{') && line.includes('}')) {
             const qText = line.replace(/\{([^}]+)\}/g, '_____');
             html += `
-                <p class="text-xs font-bold text-white">${qText}</p>
-                <input type="text" name="q_${idx}" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-white mt-2" placeholder="Type your answer here...">
+                <div class="text-xs font-bold text-white">${formatExamContent(qText)}</div>
+                <input type="text" name="q_${idx}" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-white mt-2" placeholder="Type or paste image answer here...">
             `;
         } else {
-            html += `<p class="text-xs font-bold text-white">${line}</p>`;
+            html += `<div class="text-xs font-bold text-white">${formatExamContent(line)}</div>`;
         }
         html += `</div>`;
     });
@@ -860,9 +911,15 @@ window.openStudentExam = async function(examId) {
     `;
 
     modal.classList.remove('hidden');
+
+    // Attach image paste listener to all dynamic text inputs
+    setTimeout(() => {
+        const textInputs = body.querySelectorAll('input[type="text"]');
+        textInputs.forEach(input => attachImagePasteListener(input));
+    }, 50);
 };
 
-// Student Auto-Grading Submission Handler & Marking Guide Generator
+// 7. Student Auto-Grading Submission Handler
 window.submitStudentExam = async function(examId) {
     const form = document.getElementById('student-exam-form');
     if (!form) return;
@@ -936,7 +993,7 @@ window.submitStudentExam = async function(examId) {
     }
 };
 
-// Function to render Marking Guide in Modal
+// 8. Function to render Marking Guide in Modal
 window.renderMarkingGuideInModal = function(exam, studentAnswers, scoreObtained, percentage) {
     const title = document.getElementById('exam-modal-title');
     const subtitle = document.getElementById('exam-modal-subtitle');
@@ -984,7 +1041,7 @@ window.renderMarkingGuideInModal = function(exam, studentAnswers, scoreObtained,
         html += `
             <div class="bg-slate-950 p-4 rounded-xl border ${isCorrect ? 'border-emerald-800/60' : 'border-rose-800/60'} space-y-2">
                 <div class="flex justify-between items-start gap-2">
-                    <p class="text-xs font-bold text-white">Q${idx + 1}: ${qText}</p>
+                    <div class="text-xs font-bold text-white">Q${idx + 1}: ${formatExamContent(qText)}</div>
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${isCorrect ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'}">
                         ${isCorrect ? '✓ Correct' : '✗ Incorrect'}
                     </span>
@@ -1003,15 +1060,15 @@ window.renderMarkingGuideInModal = function(exam, studentAnswers, scoreObtained,
 
                             return `
                                 <div class="p-2 rounded-lg border text-[11px] ${cardStyle}">
-                                    ${cleanOpt} ${isRight ? '✓ (Correct)' : (isSelected ? '✗ (Your Answer)' : '')}
+                                    ${formatExamContent(cleanOpt)} ${isRight ? '✓ (Correct)' : (isSelected ? '✗ (Your Answer)' : '')}
                                 </div>
                             `;
                         }).join('')}
                     </div>
                 ` : `
                     <div class="text-xs space-y-1 bg-slate-900 p-2.5 rounded-lg border border-slate-800 mt-2">
-                        <p><span class="text-slate-400">Your Answer:</span> <strong class="${isCorrect ? 'text-emerald-400' : 'text-rose-400'}">${studentAns}</strong></p>
-                        <p><span class="text-slate-400">Correct Answer:</span> <strong class="text-emerald-400">${expectedAnswer}</strong></p>
+                        <div><span class="text-slate-400">Your Answer:</span> <strong class="${isCorrect ? 'text-emerald-400' : 'text-rose-400'}">${formatExamContent(studentAns)}</strong></div>
+                        <div><span class="text-slate-400">Correct Answer:</span> <strong class="text-emerald-400">${formatExamContent(expectedAnswer)}</strong></div>
                     </div>
                 `}
             </div>
@@ -1026,7 +1083,7 @@ window.renderMarkingGuideInModal = function(exam, studentAnswers, scoreObtained,
     `;
 };
 
-// View Student Marking Guide anytime from Student Dashboard
+// 9. View Student Marking Guide anytime from Student Dashboard
 window.viewStudentMarkingGuide = async function(examId) {
     const { data: exam, error: examErr } = await supabaseClient
         .from('exams')
@@ -1059,7 +1116,7 @@ window.viewStudentMarkingGuide = async function(examId) {
     window.renderMarkingGuideInModal(exam, parsedAnswers, sub.score_obtained, sub.percentage);
 };
 
-// Teacher View Exam Results Modal
+// 10. Teacher View Exam Results Modal
 window.viewExamResults = async function(examId) {
     const modal = document.getElementById('exam-modal');
     const title = document.getElementById('exam-modal-title');
