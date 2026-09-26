@@ -422,9 +422,23 @@
                 📜 My Tickets & Replies
             </button>
         </div>
-
-        <!-- TAB 1: New Ticket Form -->
+<!-- TAB 1: New Ticket Form -->
         <form id="help-desk-form" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Your Name</label>
+                <input type="text" id="help-user-name" placeholder="Enter your full name" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Your Email</label>
+                <input type="email" id="help-user-email" placeholder="Enter your email address" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Phone Number (Optional)</label>
+                <input type="tel" id="help-user-phone" placeholder="Enter phone number" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500" />
+            </div>
+
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Issue Category</label>
                 <select id="help-category" required class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500">
@@ -454,8 +468,6 @@
                 <p class="text-xs text-slate-500 text-center py-4">Loading your tickets...</p>
             </div>
         </div>
-    </div>
-</div>
     <!-- BEAUTIFUL CREATOR & DESIGNER FOOTER -->
 <footer class="w-full bg-slate-950 border-t border-slate-800/80 text-slate-400 py-6 px-4 mt-auto">
     <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
