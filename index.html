@@ -12,20 +12,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <!-- Deferred External CDN Scripts (prevents network blocking on weak signals) -->
-    <script src="https://cdn.tailwindcss.com" defer></script>
+    <!-- Tailwind CSS loaded directly (no defer) so styles apply immediately -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Deferred Non-Style Scripts (keeps loading fast without breaking UI) -->
     <script src="https://unpkg.com/lucide@latest" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="https://meet.jit.si/external_api.js" defer></script>
 
-    <!-- Google Fonts with display=swap for instantaneous text rendering -->
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Inline Core CSS to prevent visual flash on low network -->
+    <!-- Custom styling & fonts -->
     <style>
         body { 
             font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-            background-color: #0f172a; /* Tailwind bg-slate-900 baseline */
+            background-color: #0f172a;
             color: #f8fafc;
             margin: 0;
         }
