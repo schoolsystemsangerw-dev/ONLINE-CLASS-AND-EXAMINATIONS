@@ -1019,12 +1019,25 @@ window.viewExamResults = async function(examId) {
 // HELP DESK, MODAL & USER DIRECTORY MODULE
 // ==========================================
 
-// 1. Toggle Help Desk Modal Visibility
+// 1. Toggle Help Desk Modal Visibility & Auto-fill inputs
 window.toggleHelpModal = function(show) {
     const modal = document.getElementById('help-desk-modal');
     if (modal) {
-        if (show) modal.classList.remove('hidden');
-        else modal.classList.add('hidden');
+        if (show) {
+            modal.classList.remove('hidden');
+
+            // Auto-populate inputs from active session if empty
+            const storedUser = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
+            const nameInput = document.getElementById('help-user-name');
+            const emailInput = document.getElementById('help-user-email');
+            const phoneInput = document.getElementById('help-user-phone');
+
+            if (nameInput && !nameInput.value) nameInput.value = storedUser.name || storedUser.full_name || '';
+            if (emailInput && !emailInput.value) emailInput.value = storedUser.email || '';
+            if (phoneInput && !phoneInput.value) phoneInput.value = storedUser.phone || storedUser.phone_number || '';
+        } else {
+            modal.classList.add('hidden');
+        }
     }
 };
 
@@ -1107,34 +1120,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            let userName = '';
-            let userEmail = '';
-            let userPhone = '';
+            // Step A: Read inputs directly from the user form
+            let userName = document.getElementById('help-user-name')?.value?.trim() || '';
+            let userEmail = document.getElementById('help-user-email')?.value?.trim() || '';
+            let userPhone = document.getElementById('help-user-phone')?.value?.trim() || '';
             let userId = null;
 
-            // Step A: Active local session state
-            const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            // Step B: Check stored local session for missing info
+            const storedUser = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
             if (storedUser) {
                 userId = storedUser.id || storedUser.user_id || null;
-                userName = storedUser.name || storedUser.full_name || '';
-                userEmail = storedUser.email || '';
-                userPhone = storedUser.phone || storedUser.phone_number || storedUser.phone_No || '';
+                if (!userName) userName = storedUser.name || storedUser.full_name || '';
+                if (!userEmail) userEmail = storedUser.email || '';
+                if (!userPhone) userPhone = storedUser.phone || storedUser.phone_number || storedUser.phone_No || '';
             }
 
-            // Step B: Active Supabase Auth Session
+            // Step C: Check Active Supabase Auth Session
             try {
                 if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
                     const { data: authData } = await supabaseClient.auth.getUser();
                     if (authData?.user) {
                         userId = authData.user.id || userId;
-                        userEmail = authData.user.email || userEmail;
+                        if (!userEmail) userEmail = authData.user.email || '';
                     }
                 }
             } catch (err) {
                 console.warn('Auth session check warning:', err);
             }
 
-            // Step C: Match against public.profiles table
+            // Step D: Match against profiles table for fallbacks
             if (userId || userEmail) {
                 try {
                     let query = supabaseClient.from('profiles').select('*');
@@ -1148,19 +1162,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (profile) {
                         userId = profile.id || userId;
-                        userName = profile.name || profile.full_name || userName;
-                        userEmail = profile.email || userEmail;
-                        userPhone = profile.phone || profile.phone_number || userPhone;
+                        if (!userName) userName = profile.name || profile.full_name || '';
+                        if (!userEmail) userEmail = profile.email || '';
+                        if (!userPhone) userPhone = profile.phone || profile.phone_number || '';
                     }
                 } catch (profErr) {
                     console.warn('Profiles query warning:', profErr);
                 }
             }
 
-            // Fallback parsing for display identity
-            userName = userName.trim() || (userEmail ? userEmail.split('@')[0] : 'Registered User');
-            userEmail = userEmail.trim() || 'N/A';
-            userPhone = userPhone.trim() || 'N/A';
+            // Final fallback defaults
+            userName = userName || (userEmail ? userEmail.split('@')[0] : 'Registered User');
+            userEmail = userEmail || 'N/A';
+            userPhone = userPhone || 'N/A';
 
             try {
                 const { error } = await supabaseClient
@@ -1178,6 +1192,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (error) throw error;
 
                 alert('✅ Complaint/Suggestion successfully sent!');
+                
+                // Clear message field & reset form
                 const msgInput = document.getElementById('help-message');
                 if (msgInput) msgInput.value = '';
 
@@ -1223,7 +1239,7 @@ window.loadMyTickets = async function() {
     }
 
     if (!userEmail) {
-        const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const storedUser = JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || '{}');
         if (storedUser.email) userEmail = storedUser.email;
     }
 
@@ -1277,7 +1293,7 @@ window.loadMyTickets = async function() {
     }
 };
 
-// 6. Owner Inbox Inbox Renderer
+// 6. Owner Inbox Renderer
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
     if (!tbody) return;
@@ -1313,24 +1329,24 @@ window.loadHelpTickets = async function() {
             const emailClean = (t.user_email || '').toLowerCase().trim();
             const matchedProfile = (t.user_id ? profileMapById[String(t.user_id)] : null) || profileMapByEmail[emailClean];
 
-            // Primary: Profile lookup
-            let resolvedName = matchedProfile?.name || matchedProfile?.full_name || matchedProfile?.username || null;
+            // Primary: Submitted Ticket Name
+            let resolvedName = t.user_name && !['Registered User', 'User', 'Anonymous User', 'Anonymous', 'Guest User', 'N/A'].includes(t.user_name.trim()) ? t.user_name : null;
             
-            // Secondary: Ticket user_name if valid and not a generic placeholder
-            if (!resolvedName && t.user_name && !['Registered User', 'User', 'Anonymous User', 'Anonymous', 'Guest User', 'N/A'].includes(t.user_name.trim())) {
-                resolvedName = t.user_name;
+            // Secondary: Profile Lookup
+            if (!resolvedName && matchedProfile) {
+                resolvedName = matchedProfile.name || matchedProfile.full_name || matchedProfile.username;
             }
-            
-            // Tertiary: Parse email string
-            if (!resolvedName && t.user_email && t.user_email !== 'N/A' && t.user_email !== 'No Email') {
+
+            // Tertiary: Parse Email String
+            if (!resolvedName && t.user_email && !['N/A', 'No Email'].includes(t.user_email)) {
                 resolvedName = t.user_email.split('@')[0];
             }
 
             // Fallback
             if (!resolvedName) resolvedName = 'Registered User';
 
-            const resolvedEmail = matchedProfile?.email || (t.user_email && !['N/A', 'No Email'].includes(t.user_email) ? t.user_email : 'No Email');
-            const resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && !['N/A', 'No Phone'].includes(t.phone_number) ? t.phone_number : 'No Phone');
+            const resolvedEmail = (t.user_email && !['N/A', 'No Email'].includes(t.user_email)) ? t.user_email : (matchedProfile?.email || 'No Email');
+            const resolvedPhone = (t.phone_number && !['N/A', 'No Phone'].includes(t.phone_number)) ? t.phone_number : (matchedProfile?.phone || matchedProfile?.phone_number || 'No Phone');
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800/50">
