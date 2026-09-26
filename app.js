@@ -1138,31 +1138,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            let userName = 'Anonymous User';
+            let userName = 'Guest User';
             let userEmail = 'N/A';
             let userPhone = 'N/A';
             let userId = null;
 
             try {
-                // First attempt: Check Supabase Auth Session
+                // A. Check active local registration session
+                const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                if (storedUser) {
+                    userId = storedUser.id || storedUser.user_id || null;
+                    userName = storedUser.name || storedUser.full_name || userName;
+                    userEmail = storedUser.email || userEmail;
+                    userPhone = storedUser.phone || storedUser.phone_number || storedUser.phone_No || userPhone;
+                }
+
+                // B. Check Supabase Auth Session
                 if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
                     const { data: authData } = await supabaseClient.auth.getUser();
                     if (authData?.user) {
-                        userId = authData.user.id;
+                        userId = authData.user.id || userId;
                         userEmail = authData.user.email || userEmail;
                     }
                 }
 
-                // Fallback: Check localStorage or global state if Supabase Auth is null
-                if (!userId) {
-                    const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                    userId = storedUser.id || storedUser.user_id || null;
-                    userEmail = storedUser.email || (typeof currentUserProfile !== 'undefined' && currentUserProfile?.email) || userEmail;
-                    userName = storedUser.name || storedUser.full_name || (typeof currentUserProfile !== 'undefined' && currentUserProfile?.name) || userName;
-                    userPhone = storedUser.phone || storedUser.phone_number || (typeof currentUserProfile !== 'undefined' && currentUserProfile?.phone) || userPhone;
-                }
-
-                // Query public.profiles table if userId or email is available
+                // C. Query public.profiles table if userId or email is available
                 if (userId || (userEmail && userEmail !== 'N/A')) {
                     let query = supabaseClient.from('profiles').select('*');
                     if (userId) {
@@ -1214,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Auto-load Owner Tickets on page load if container exists
+    // Auto-load Owner Inbox on page load if container exists
     if (document.getElementById('help-tickets-tbody') && typeof window.loadHelpTickets === 'function') {
         window.loadHelpTickets();
     }
@@ -1343,10 +1343,10 @@ window.loadHelpTickets = async function() {
             if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
                 resolvedName = t.user_email.split('@')[0];
             }
-            if (!resolvedName) resolvedName = 'Anonymous User';
+            if (!resolvedName) resolvedName = 'Guest User';
 
-            let resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'N/A');
-            let resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'N/A');
+            let resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'No Email');
+            let resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'No Phone');
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800/50">
@@ -1377,7 +1377,7 @@ window.loadHelpTickets = async function() {
     }
 };
 
-// 4. Global Reply Handler (Attached to window for inline HTML onclick calls)
+// 4. Global Reply Handler (Attached to window)
 window.replyToTicket = async function(ticketId) {
     const response = prompt("Enter your reply message:");
     if (!response || !response.trim()) return;
