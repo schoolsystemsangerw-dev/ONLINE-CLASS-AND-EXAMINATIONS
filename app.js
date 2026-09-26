@@ -517,21 +517,30 @@ window.approveUser = async function(email) {
 // TEACHER & STUDENT DASHBOARD MODULE (EXAMS & MARKING GUIDES)
 // =================================================================
 
-// Helper function: Render inline Markdown images & Base64 Data URLs to HTML <img> elements
+/**
+ * Helper function: Render inline Markdown images, SVG Data URIs, & Base64 Data URLs to HTML <img> elements.
+ * Correctly parses unescaped SVG data URLs, Base64 strings, and standard HTTP/HTTPS links.
+ */
 function formatExamContent(text) {
     if (!text) return '';
-    return text.replace(/!\[(.*?)\]\((.*?)\)/g, (match, alt, url) => {
-        return `<div class="my-2 flex justify-center">
-                    <img src="${url}" alt="${alt}" class="max-h-60 rounded-lg border border-slate-700 object-contain shadow-md" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\"text-xs text-rose-400 italic\">[Image failed to load]</span>';"/>
+
+    // Regex safely matches standard markdown image syntax containing data URIs, SVG text, or web links
+    return text.replace(/!\[(.*?)\]\((data:image\/[a-zA-Z0-9\+\-\.]+;[a-zA-Z0-9\+\-\.=;,\%]+,.*?\vert{}https?:\/\/[^\s\)]+)\)/g, (match, alt, url) => {
+        return `<div class="my-3 flex justify-center">
+                    <img src="${url}" alt="${alt}" class="max-h-60 rounded-xl border border-slate-700 bg-slate-950 p-2 object-contain shadow-md" onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\"text-xs text-rose-400 italic\">[Image failed to load]</span>';"/>
                 </div>`;
     });
 }
 
-// Attach image pasting listener to any textarea or input element dynamically
+/**
+ * Attach image pasting listener to any textarea or input element dynamically.
+ * Allows teachers and students to directly press Ctrl+V / Cmd+V to paste copied images.
+ */
 function attachImagePasteListener(element) {
     if (!element) return;
+    
     element.addEventListener('paste', function (event) {
-        const items = (event.clipboardData || event.originalEvent.clipboardData)?.items;
+        const items = (event.clipboardData || event.originalEvent?.clipboardData)?.items;
         if (!items) return;
 
         for (let item of items) {
@@ -542,7 +551,7 @@ function attachImagePasteListener(element) {
 
                 reader.onload = function (e) {
                     const base64Image = e.target.result;
-                    const imageTag = `\n![pasted_image](${base64Image})\n`;
+                    const imageTag = `\n![pasted_image_${Date.now()}](${base64Image})\n`;
 
                     const startPos = element.selectionStart || element.value.length;
                     const endPos = element.selectionEnd || element.value.length;
@@ -550,6 +559,9 @@ function attachImagePasteListener(element) {
 
                     element.value = currentValue.substring(0, startPos) + imageTag + currentValue.substring(endPos);
                     element.selectionStart = element.selectionEnd = startPos + imageTag.length;
+
+                    // Trigger input event to update any active previews or UI auto-saves
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
                 };
 
                 reader.readAsDataURL(blob);
@@ -559,6 +571,36 @@ function attachImagePasteListener(element) {
     });
 }
 
+/**
+ * Helper function: Insert an image from a file picker directly into a targeted textarea or input element.
+ * Use this when a teacher clicks a "Choose Picture File" button.
+ */
+function insertImageFromFile(fileInput, targetElement) {
+    if (!fileInput || !fileInput.files || !fileInput.files[0] || !targetElement) return;
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = function (e) {
+        const base64Image = e.target.result;
+        const imageTag = `\n![uploaded_image_${Date.now()}](${base64Image})\n`;
+
+        const startPos = targetElement.selectionStart || targetElement.value.length;
+        const endPos = targetElement.selectionEnd || targetElement.value.length;
+        const currentValue = targetElement.value;
+
+        targetElement.value = currentValue.substring(0, startPos) + imageTag + currentValue.substring(endPos);
+        targetElement.selectionStart = targetElement.selectionEnd = startPos + imageTag.length;
+
+        // Reset file input for subsequent uploads
+        fileInput.value = '';
+        
+        // Trigger input event
+        targetElement.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    reader.readAsDataURL(file);
+}
 // 1. Teacher Dashboard Renderer
 async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
