@@ -994,7 +994,11 @@ window.viewExamResults = async function(examId) {
 
     modal.classList.remove('hidden');
 };
-// Toggle Help Desk Modal
+// ==========================================
+// HELP DESK, MODAL & USER DIRECTORY MODULE
+// ==========================================
+
+// 1. Toggle Help Desk Modal Visibility
 window.toggleHelpModal = function(show) {
     const modal = document.getElementById('help-desk-modal');
     if (modal) {
@@ -1003,61 +1007,28 @@ window.toggleHelpModal = function(show) {
     }
 };
 
-// Help Desk Form Submission to Supabase DB
-document.addEventListener('DOMContentLoaded', () => {
-    const helpForm = document.getElementById('help-desk-form');
-    if (helpForm) {
-        helpForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const category = document.getElementById('help-category')?.value || 'General Inquiry';
-            const message = document.getElementById('help-message')?.value || '';
+// 2. Tab Switching Inside Help Desk Modal
+window.switchHelpTab = function(tab) {
+    const newForm = document.getElementById('help-desk-form');
+    const historyView = document.getElementById('help-history-view');
+    const btnNew = document.getElementById('tab-btn-new');
+    const btnHist = document.getElementById('tab-btn-history');
 
-            if (!message.trim()) {
-                alert('Please enter a message before submitting.');
-                return;
-            }
-
-            let userEmail = 'Anonymous User';
-            try {
-                if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                    const { data: { session } } = await supabaseClient.auth.getSession();
-                    if (session && session.user && session.user.email) {
-                        userEmail = session.user.email;
-                    } else {
-                        const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                        if (storedUser.email) {
-                            userEmail = storedUser.email;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('Auth user fetch warning:', err);
-            }
-
-            try {
-                const { error } = await supabaseClient
-                    .from('help_tickets')
-                    .insert([
-                        { user_email: userEmail, category: category, message: message, status: 'Pending' }
-                    ]);
-
-                if (error) throw error;
-
-                alert('✅ Complaint/Suggestion successfully sent to Owner Dashboard!');
-                if (document.getElementById('help-message')) {
-                    document.getElementById('help-message').value = '';
-                }
-                if (typeof toggleHelpModal === 'function') {
-                    toggleHelpModal(false);
-                }
-            } catch (err) {
-                console.error('Submission error:', err);
-                alert('Error submitting ticket: ' + (err.message || 'Database error'));
-            }
-        });
+    if (tab === 'new') {
+        if (newForm) newForm.classList.remove('hidden');
+        if (historyView) historyView.classList.add('hidden');
+        if (btnNew) btnNew.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400 font-semibold";
+        if (btnHist) btnHist.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold";
+    } else {
+        if (newForm) newForm.classList.add('hidden');
+        if (historyView) historyView.classList.remove('hidden');
+        if (btnHist) btnHist.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400 font-semibold";
+        if (btnNew) btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-semibold";
+        if (typeof window.loadMyTickets === 'function') window.loadMyTickets();
     }
-});
-// Load User Directory for Owner Panel
+};
+
+// 3. Load User Directory for Owner Dashboard
 window.loadUserDirectory = async function() {
     const tbody = document.getElementById('user-directory-tbody');
     if (!tbody) return;
@@ -1081,12 +1052,11 @@ window.loadUserDirectory = async function() {
             if (u.role === 'student') roleBadge = 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
             if (u.role === 'admin' || u.role === 'owner') roleBadge = 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
 
-            // Check every possible column name for full name and phone number
-            const displayName = u.full_name || u.name || u.username || u.display_name || u.email?.split('@')[0] || 'User';
+            const displayName = u.name || u.full_name || u.username || u.display_name || (u.email ? u.email.split('@')[0] : 'Registered User');
             const displayPhone = u.phone || u.phone_number || u.mobile || '';
 
             return `
-                <tr class="hover:bg-slate-800/40 transition-colors">
+                <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800/50">
                     <td class="py-3 px-4">
                         <div class="font-bold text-white text-xs">${displayName}</div>
                         ${displayPhone ? `<div class="text-[10px] text-slate-400 font-mono">📞 ${displayPhone}</div>` : ''}
@@ -1098,33 +1068,11 @@ window.loadUserDirectory = async function() {
             `;
         }).join('');
     } catch (err) {
-        console.warn('Error loading directory:', err);
+        console.warn('Error loading user directory:', err);
     }
 };
-// Tab Switching inside Help Modal
-window.switchHelpTab = function(tab) {
-    const newForm = document.getElementById('help-desk-form');
-    const historyView = document.getElementById('help-history-view');
-    const btnNew = document.getElementById('tab-btn-new');
-    const btnHist = document.getElementById('tab-btn-history');
 
-    if (tab === 'new') {
-        if (newForm) newForm.classList.remove('hidden');
-        if (historyView) historyView.classList.add('hidden');
-        if (btnNew) btnNew.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400";
-        if (btnHist) btnHist.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
-    } else {
-        if (newForm) newForm.classList.add('hidden');
-        if (historyView) historyView.classList.remove('hidden');
-        if (btnHist) btnHist.className = "pb-2 border-b-2 border-indigo-500 text-indigo-400";
-        if (btnNew) btnNew.className = "pb-2 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
-    }
-};
-// ==========================================
-// HELP DESK & USER SUGGESTIONS SYSTEM
-// ==========================================
-
-// 1. Help Desk Form Submit: Queries Supabase Auth, localStorage, and 'profiles' table
+// 4. Form Submission Handler & Initialization Listener
 document.addEventListener('DOMContentLoaded', () => {
     const helpForm = document.getElementById('help-desk-form');
     if (helpForm) {
@@ -1138,22 +1086,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            let userName = 'Guest User';
-            let userEmail = 'N/A';
-            let userPhone = 'N/A';
+            let userName = '';
+            let userEmail = '';
+            let userPhone = '';
             let userId = null;
 
-            try {
-                // A. Check active local registration session
-                const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-                if (storedUser) {
-                    userId = storedUser.id || storedUser.user_id || null;
-                    userName = storedUser.name || storedUser.full_name || userName;
-                    userEmail = storedUser.email || userEmail;
-                    userPhone = storedUser.phone || storedUser.phone_number || storedUser.phone_No || userPhone;
-                }
+            // Step A: Active local session state
+            const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (storedUser) {
+                userId = storedUser.id || storedUser.user_id || null;
+                userName = storedUser.name || storedUser.full_name || '';
+                userEmail = storedUser.email || '';
+                userPhone = storedUser.phone || storedUser.phone_number || storedUser.phone_No || '';
+            }
 
-                // B. Check Supabase Auth Session
+            // Step B: Active Supabase Auth Session
+            try {
                 if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
                     const { data: authData } = await supabaseClient.auth.getUser();
                     if (authData?.user) {
@@ -1161,9 +1109,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         userEmail = authData.user.email || userEmail;
                     }
                 }
+            } catch (err) {
+                console.warn('Auth session check warning:', err);
+            }
 
-                // C. Query public.profiles table if userId or email is available
-                if (userId || (userEmail && userEmail !== 'N/A')) {
+            // Step C: Match against public.profiles table
+            if (userId || userEmail) {
+                try {
                     let query = supabaseClient.from('profiles').select('*');
                     if (userId) {
                         query = query.eq('id', userId);
@@ -1179,30 +1131,35 @@ document.addEventListener('DOMContentLoaded', () => {
                         userEmail = profile.email || userEmail;
                         userPhone = profile.phone || profile.phone_number || userPhone;
                     }
+                } catch (profErr) {
+                    console.warn('Profiles query warning:', profErr);
                 }
-            } catch (err) {
-                console.warn('Session check warning:', err);
             }
+
+            // Fallback parsing for display identity
+            userName = userName.trim() || (userEmail ? userEmail.split('@')[0] : 'Registered User');
+            userEmail = userEmail.trim() || 'N/A';
+            userPhone = userPhone.trim() || 'N/A';
 
             try {
                 const { error } = await supabaseClient
                     .from('help_tickets')
                     .insert([{
-                        user_id: userId,
+                        user_id: userId ? String(userId) : null,
                         user_name: userName,
                         user_email: userEmail,
                         phone_number: userPhone,
                         category: category,
-                        message: message,
+                        message: message.trim(),
                         status: 'Pending'
                     }]);
 
                 if (error) throw error;
 
-                alert('✅ Submitted successfully!');
+                alert('✅ Complaint/Suggestion successfully sent!');
                 const msgInput = document.getElementById('help-message');
                 if (msgInput) msgInput.value = '';
-                
+
                 if (typeof toggleHelpModal === 'function') toggleHelpModal(false);
                 if (typeof window.loadHelpTickets === 'function') window.loadHelpTickets();
                 if (typeof window.loadMyTickets === 'function') window.loadMyTickets();
@@ -1214,32 +1171,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Auto-load Owner Inbox on page load if container exists
+    // Automatic table populators on DOM load
     if (document.getElementById('help-tickets-tbody') && typeof window.loadHelpTickets === 'function') {
         window.loadHelpTickets();
     }
-    
-    // Auto-load User Tickets on page load if container exists
     if (document.getElementById('my-tickets-container') && typeof window.loadMyTickets === 'function') {
         window.loadMyTickets();
     }
+    if (document.getElementById('user-directory-tbody') && typeof window.loadUserDirectory === 'function') {
+        window.loadUserDirectory();
+    }
 });
 
-// 2. Load Tickets for Logged-In User with Owner Replies (Attached to window)
+// 5. Render Logged-In User's Sent Tickets
 window.loadMyTickets = async function() {
     const container = document.getElementById('my-tickets-container');
     if (!container) return;
 
     let userEmail = null;
 
-    if (typeof currentUserProfile !== 'undefined' && currentUserProfile && currentUserProfile.email) {
+    if (typeof currentUserProfile !== 'undefined' && currentUserProfile?.email) {
         userEmail = currentUserProfile.email;
     } else if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
         try {
-            if (typeof supabaseClient.auth.getUser === 'function') {
-                const { data } = await supabaseClient.auth.getUser();
-                if (data?.user) userEmail = data.user.email;
-            }
+            const { data } = await supabaseClient.auth.getUser();
+            if (data?.user) userEmail = data.user.email;
         } catch (err) {
             console.warn('Could not fetch auth user email:', err);
         }
@@ -1300,7 +1256,7 @@ window.loadMyTickets = async function() {
     }
 };
 
-// 3. Owner Inbox Handler: Renders sender info with cross-matching against public.profiles (Attached to window)
+// 6. Owner Inbox Inbox Renderer
 window.loadHelpTickets = async function() {
     const tbody = document.getElementById('help-tickets-tbody');
     if (!tbody) return;
@@ -1324,20 +1280,20 @@ window.loadHelpTickets = async function() {
         const profileMapByEmail = {};
         if (profiles) {
             profiles.forEach(p => {
-                if (p.id) profileMapById[p.id] = p;
+                if (p.id) profileMapById[String(p.id)] = p;
                 if (p.email) profileMapByEmail[p.email.toLowerCase().trim()] = p;
             });
         }
 
         tbody.innerHTML = tickets.map(t => {
             const dateStr = new Date(t.created_at).toLocaleDateString() + ' ' + new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            let statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+            const statusBadge = t.status === 'Resolved' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30';
 
             const emailClean = (t.user_email || '').toLowerCase().trim();
-            const matchedProfile = profileMapById[t.user_id] || profileMapByEmail[emailClean];
+            const matchedProfile = profileMapById[String(t.user_id)] || profileMapByEmail[emailClean];
 
             let resolvedName = matchedProfile?.name || matchedProfile?.full_name || null;
-            if (!resolvedName && t.user_name && !['User', 'Anonymous User', 'Anonymous', 'N/A'].includes(t.user_name.trim())) {
+            if (!resolvedName && t.user_name && !['User', 'Anonymous User', 'Anonymous', 'Guest User', 'N/A'].includes(t.user_name.trim())) {
                 resolvedName = t.user_name;
             }
             if (!resolvedName && t.user_email && t.user_email !== 'N/A') {
@@ -1345,8 +1301,8 @@ window.loadHelpTickets = async function() {
             }
             if (!resolvedName) resolvedName = 'Guest User';
 
-            let resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'No Email');
-            let resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'No Phone');
+            const resolvedEmail = matchedProfile?.email || (t.user_email && t.user_email !== 'N/A' ? t.user_email : 'No Email');
+            const resolvedPhone = matchedProfile?.phone || matchedProfile?.phone_number || (t.phone_number && t.phone_number !== 'N/A' ? t.phone_number : 'No Phone');
 
             return `
                 <tr class="hover:bg-slate-800/40 transition-colors border-b border-slate-800/50">
@@ -1372,12 +1328,12 @@ window.loadHelpTickets = async function() {
         }).join('');
 
     } catch (err) {
-        console.warn('Error loading tickets:', err);
+        console.warn('Error loading inbox tickets:', err);
         tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load inbox.</td></tr>`;
     }
 };
 
-// 4. Global Reply Handler (Attached to window)
+// 7. Global Ticket Reply Action Handler
 window.replyToTicket = async function(ticketId) {
     const response = prompt("Enter your reply message:");
     if (!response || !response.trim()) return;
