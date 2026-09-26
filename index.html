@@ -5,19 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SmartEdu Portal - Learning & Interactive Exam Platform</title>
 
-    <!-- Speed up DNS resolution and SSL handshakes for external CDNs -->
+    <!-- Speed up DNS resolution for external CDNs -->
     <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
     <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <!-- Tailwind CSS loaded directly (no defer) so styles apply immediately -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Deferred Non-Style Scripts (keeps loading fast without breaking UI) -->
-    <script src="https://unpkg.com/lucide@latest" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <!-- Supabase JS Library (Loaded before app.js so createClient works) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Jitsi Meet API (Optional / Defer so network block doesn't crash app) -->
     <script src="https://meet.jit.si/external_api.js" defer></script>
 
     <!-- Google Fonts -->
@@ -55,17 +59,6 @@
             animation-play-state: paused;
         }
     </style>
-
-    <!-- Low-Connectivity Service Worker Caching Script -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(() => console.log('SmartEdu Low-Network Cache Ready'))
-                    .catch(() => {});
-            });
-        }
-    </script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
 
