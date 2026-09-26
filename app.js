@@ -1605,3 +1605,203 @@ window.replyToTicket = async function(ticketId) {
         alert("Failed to send reply: " + (err.message || "Database error"));
     }
 };
+// ==========================================
+// REPORT CARD GENERATOR & UTILITIES
+// ==========================================
+
+// 1. Load students into the dropdown selector
+async function loadStudentsForReport() {
+  const select = document.getElementById('reportStudentSelect');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Loading students...</option>';
+
+  // Fetch registered students from Supabase
+  const { data: students, error } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, position')
+    .ilike('position', '%Student%');
+
+  if (error || !students || students.length === 0) {
+    // Fallback search if position filter varies
+    const { data: allUsers } = await supabaseClient
+      .from('profiles')
+      .select('id, full_name');
+
+    if (!allUsers || allUsers.length === 0) {
+      select.innerHTML = '<option value="">No students found</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">-- Choose Student --</option>' + 
+      allUsers.map(s => `<option value="${s.id}" data-name="${s.full_name}">${s.full_name || 'Unnamed Student'}</option>`).join('');
+    return;
+  }
+
+  select.innerHTML = '<option value="">-- Choose Student --</option>' + 
+    students.map(s => `<option value="${s.id}" data-name="${s.full_name}">${s.full_name}</option>`).join('');
+}
+
+// 2. Main handler when clicking "Download Report Card (PDF)"
+async function handleGenerateReport() {
+  const studentSelect = document.getElementById('reportStudentSelect');
+  const termSelect = document.getElementById('reportTerm');
+  const yearSelect = document.getElementById('reportYear');
+
+  if (!studentSelect || !studentSelect.value) {
+    alert("Please select a student first.");
+    return;
+  }
+
+  const studentId = studentSelect.value;
+  const selectedOption = studentSelect.options[studentSelect.selectedIndex];
+  const studentName = selectedOption.getAttribute('data-name') || selectedOption.text;
+  const selectedTerm = termSelect ? termSelect.value : 'Term 3';
+  const selectedYear = yearSelect ? yearSelect.value : '2026';
+
+  // Fetch marks for selected student, term, and academic year
+  const { data: marks, error } = await supabaseClient
+    .from('student_marks')
+    .select('subject_name, marks_obtained, max_marks')
+    .eq('student_id', studentId)
+    .eq('term', selectedTerm)
+    .eq('academic_year', selectedYear);
+
+  if (error) {
+    console.error("Error fetching marks:", error);
+    alert("Failed to load student marks from database.");
+    return;
+  }
+
+  if (!marks || marks.length === 0) {
+    alert(`No marks recorded for ${studentName} in ${selectedTerm} (${selectedYear}).`);
+    return;
+  }
+
+  // Generate and download PDF
+  await generateReportCard(studentName, "Primary School", marks, {
+    name: "SMARTEDU ACADEMY",
+    location: "NYAGATARE",
+    term: selectedTerm,
+    year: selectedYear
+  });
+}
+
+// 3. Core function to construct PDF layout using jsPDF & html2canvas
+async function generateReportCard(studentName, className, marksArray, schoolDetails = {}) {
+  const { jsPDF } = window.jspdf;
+
+  function calculateGrade(score) {
+    if (score >= 80) return { grade: 'A', remark: 'Excellent' };
+    if (score >= 70) return { grade: 'B', remark: 'Very Good' };
+    if (score >= 60) return { grade: 'C', remark: 'Good' };
+    if (score >= 50) return { grade: 'D', remark: 'Pass' };
+    return { grade: 'F', remark: 'Fail' };
+  }
+
+  let totalObtained = 0;
+  let totalMax = 0;
+
+  const rowsHtml = marksArray.map(item => {
+    const score = Number(item.marks_obtained || item.score || 0);
+    const maxMarks = Number(item.max_marks || 100);
+    totalObtained += score;
+    totalMax += maxMarks;
+
+    const { grade, remark } = calculateGrade(score);
+
+    return `
+      <tr style="border-bottom: 1px solid #cbd5e1;">
+        <td style="padding: 10px; font-weight: 500; text-align: left;">${item.subject_name || 'Subject'}</td>
+        <td style="padding: 10px; text-align: center;">${maxMarks}</td>
+        <td style="padding: 10px; text-align: center; font-weight: bold;">${score}</td>
+        <td style="padding: 10px; text-align: center; font-weight: bold; color: #16a34a;">${grade}</td>
+        <td style="padding: 10px; text-align: left; font-style: italic;">${remark}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const averagePercentage = totalMax > 0 ? ((totalObtained / totalMax) * 100).toFixed(1) : 0;
+  const overallGrade = calculateGrade(averagePercentage);
+
+  // Build hidden off-screen element for canvas capture
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.width = '700px';
+  container.style.padding = '30px';
+  container.style.backgroundColor = '#ffffff';
+  container.style.color = '#0f172a';
+  container.style.fontFamily = 'Arial, sans-serif';
+
+  container.innerHTML = `
+    <div style="text-align: center; border-bottom: 3px solid #16a34a; padding-bottom: 12px; margin-bottom: 20px;">
+      <h1 style="margin: 0; font-size: 22px; color: #0f172a; text-transform: uppercase;">${schoolDetails.name || 'SMARTEDU PORTAL'}</h1>
+      <p style="margin: 4px 0 0 0; font-size: 13px; color: #475569;">Location: ${schoolDetails.location || 'NYAGATARE, RWANDA'}</p>
+      <h2 style="margin: 12px 0 0 0; font-size: 16px; color: #16a34a; text-transform: uppercase;">STUDENT PROGRESS REPORT CARD</h2>
+    </div>
+
+    <div style="background-color: #f8fafc; padding: 14px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 20px; font-size: 13px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div><strong>Student Name:</strong> ${studentName}</div>
+        <div><strong>Academic Year:</strong> ${schoolDetails.year || '2026'}</div>
+        <div><strong>Class / Level:</strong> ${className}</div>
+        <div><strong>Term:</strong> ${schoolDetails.term || 'Term 3'}</div>
+      </div>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px;">
+      <thead>
+        <tr style="background-color: #16a34a; color: #ffffff;">
+          <th style="padding: 10px; text-align: left;">Subject</th>
+          <th style="padding: 10px; text-align: center;">Max Score</th>
+          <th style="padding: 10px; text-align: center;">Score Obtained</th>
+          <th style="padding: 10px; text-align: center;">Grade</th>
+          <th style="padding: 10px; text-align: left;">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+      </tbody>
+    </table>
+
+    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 35px; display: flex; justify-content: space-between;">
+      <div><strong>Total Marks:</strong> ${totalObtained} / ${totalMax}</div>
+      <div><strong>Average:</strong> ${averagePercentage}%</div>
+      <div><strong>Overall Decision:</strong> <span style="color: #16a34a; font-weight: bold;">${overallGrade.grade} (${overallGrade.remark})</span></div>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; margin-top: 50px; font-size: 12px;">
+      <div style="text-align: center;">
+        <p style="margin-bottom: 35px;">___________________________</p>
+        <p><strong>Class Teacher Signature</strong></p>
+      </div>
+      <div style="text-align: center;">
+        <p style="margin-bottom: 35px;">___________________________</p>
+        <p><strong>Headmaster Stamp & Signature</strong></p>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  // Render HTML to PDF canvas
+  const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF('p', 'mm', 'a4');
+
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+  pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+  pdf.save(`${studentName.replace(/\s+/g, '_')}_ReportCard.pdf`);
+
+  document.body.removeChild(container);
+}
+
+// Auto-populate student list on DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    loadStudentsForReport();
+  }, 1000);
+});
