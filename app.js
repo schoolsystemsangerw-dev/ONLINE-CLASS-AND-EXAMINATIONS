@@ -1015,11 +1015,20 @@ document.addEventListener('DOMContentLoaded', () => {
             let userEmail = 'Anonymous User';
             try {
                 if (typeof supabaseClient !== 'undefined' && supabaseClient.auth) {
-                    const user = supabaseClient.auth.user();
-                    if (user && user.email) userEmail = user.email;
+                    const { data: { session } } = await supabaseClient.auth.getSession();
+                    if (session && session.user && session.user.email) {
+                        userEmail = session.user.email;
+                    } else {
+                        // Fallback to localStorage if logged in via custom session store
+                        const storedUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                        if (storedUser.email) {
+                            userEmail = storedUser.email;
+                        }
+                    }
                 }
             } catch (err) {
                 console.warn('Auth user fetch warning:', err);
+            }
             }
 
             try {
