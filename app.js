@@ -513,7 +513,6 @@ window.approveUser = async function(email) {
     renderOwnerDashboard();
     alert(`Account approved successfully!`);
 };
-
 // Teacher Dashboard (with Exam Creation & Results Tracking)
 async function renderTeacherDashboard() {
     const container = document.getElementById('teacher-classes-cards');
@@ -594,7 +593,7 @@ async function renderTeacherDashboard() {
     if (window.lucide) lucide.createIcons();
 }
 
-// Student Dashboard (with Active Exam Session & Score Feedback)
+// Student Dashboard (with Active Exam Session, Score Feedback & Marking Guide View)
 async function renderStudentDashboard() {
     const container = document.getElementById('student-classes-cards');
     if (!container) return;
@@ -687,10 +686,10 @@ async function renderStudentDashboard() {
                         const sub = submissions ? submissions.find(s => s.exam_id === ex.id) : null;
                         if (sub) {
                             return `
-                                <div class="w-full py-2 bg-emerald-950/50 border border-emerald-800/80 text-emerald-300 rounded-xl text-xs px-3 flex justify-between items-center font-semibold">
-                                    <span>📝 ${ex.title}</span>
-                                    <span class="font-mono font-bold">${sub.score_obtained}/${ex.total_marks} (${sub.percentage}%)</span>
-                                </div>
+                                <button onclick="window.viewStudentMarkingGuide(${ex.id})" class="w-full py-2 bg-emerald-950/50 hover:bg-emerald-900/50 border border-emerald-800/80 text-emerald-300 rounded-xl text-xs px-3 flex justify-between items-center font-semibold transition">
+                                    <span class="flex items-center gap-1.5"><i data-lucide="file-check" class="w-4 h-4 text-emerald-400"></i> ${ex.title}</span>
+                                    <span class="font-mono font-bold text-[11px] bg-emerald-900/80 px-2 py-0.5 rounded text-emerald-200">${sub.score_obtained}/${ex.total_marks} (${sub.percentage}%) - Guide</span>
+                                </button>
                             `;
                         } else {
                             return `
@@ -863,7 +862,7 @@ window.openStudentExam = async function(examId) {
     modal.classList.remove('hidden');
 };
 
-// Student Auto-Grading Submission Handler
+// Student Auto-Grading Submission Handler & Marking Guide Generator
 window.submitStudentExam = async function(examId) {
     const form = document.getElementById('student-exam-form');
     if (!form) return;
@@ -931,10 +930,133 @@ window.submitStudentExam = async function(examId) {
     if (subError) {
         alert("Error submitting exam: " + subError.message);
     } else {
-        alert(`Exam submitted! You scored ${scoreObtained}/${exam.total_marks} (${percentage}%).`);
-        window.closeExamModal();
+        // Display the marking guide directly inside the modal
+        window.renderMarkingGuideInModal(exam, studentAnswers, scoreObtained, percentage);
         if (typeof renderStudentDashboard === 'function') renderStudentDashboard();
     }
+};
+
+// Function to render Marking Guide in Modal
+window.renderMarkingGuideInModal = function(exam, studentAnswers, scoreObtained, percentage) {
+    const title = document.getElementById('exam-modal-title');
+    const subtitle = document.getElementById('exam-modal-subtitle');
+    const body = document.getElementById('exam-modal-body');
+    const footer = document.getElementById('exam-modal-footer');
+
+    if (!title || !body) return;
+
+    const isPassed = percentage >= 50;
+
+    title.innerText = `Marking Guide: ${exam.title}`;
+    subtitle.innerText = `Score: ${scoreObtained} / ${exam.total_marks} (${percentage}%) - ${isPassed ? 'PASSED 🎉' : 'NEEDS IMPROVEMENT ⚠️'}`;
+
+    const lines = exam.questions.split('\n').filter(l => l.trim() !== '');
+
+    let html = `
+        <div class="space-y-4">
+            <div class="p-4 rounded-xl text-center font-bold ${isPassed ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800' : 'bg-rose-950/60 text-rose-300 border border-rose-800'}">
+                <p class="text-sm">Exam Submitted Successfully!</p>
+                <p class="text-xs font-normal mt-1 text-slate-300">Below is the question-by-question breakdown and correct answers.</p>
+            </div>
+    `;
+
+    lines.forEach((line, idx) => {
+        let qText = "";
+        let expectedAnswer = "";
+        let rawOptions = [];
+        const studentAns = studentAnswers[`q_${idx}`] || "No Answer";
+
+        if (line.includes('[') && line.includes(']')) {
+            qText = line.split('[')[0].trim();
+            rawOptions = line.substring(line.indexOf('[') + 1, line.indexOf(']')).split('|');
+            const correctOpt = rawOptions.find(o => o.includes('*'));
+            if (correctOpt) expectedAnswer = correctOpt.replace('*', '').trim();
+        } else if (line.includes('{') && line.includes('}')) {
+            qText = line.replace(/\{([^}]+)\}/g, '_____');
+            const match = line.match(/\{([^}]+)\}/);
+            if (match) expectedAnswer = match[1].trim();
+        } else {
+            qText = line;
+        }
+
+        const isCorrect = String(studentAns).trim().toLowerCase() === String(expectedAnswer).trim().toLowerCase();
+
+        html += `
+            <div class="bg-slate-950 p-4 rounded-xl border ${isCorrect ? 'border-emerald-800/60' : 'border-rose-800/60'} space-y-2">
+                <div class="flex justify-between items-start gap-2">
+                    <p class="text-xs font-bold text-white">Q${idx + 1}: ${qText}</p>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 ${isCorrect ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-rose-950 text-rose-300 border border-rose-800'}">
+                        ${isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                    </span>
+                </div>
+
+                ${rawOptions.length > 0 ? `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 mt-2">
+                        ${rawOptions.map(opt => {
+                            const cleanOpt = opt.replace('*', '').trim();
+                            const isSelected = cleanOpt.toLowerCase() === studentAns.toLowerCase();
+                            const isRight = cleanOpt.toLowerCase() === expectedAnswer.toLowerCase();
+
+                            let cardStyle = "bg-slate-900 border-slate-800 text-slate-400";
+                            if (isRight) cardStyle = "bg-emerald-950/70 border-emerald-600 text-emerald-200 font-bold";
+                            else if (isSelected && !isRight) cardStyle = "bg-rose-950/70 border-rose-600 text-rose-200 font-bold";
+
+                            return `
+                                <div class="p-2 rounded-lg border text-[11px] ${cardStyle}">
+                                    ${cleanOpt} ${isRight ? '✓ (Correct)' : (isSelected ? '✗ (Your Answer)' : '')}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : `
+                    <div class="text-xs space-y-1 bg-slate-900 p-2.5 rounded-lg border border-slate-800 mt-2">
+                        <p><span class="text-slate-400">Your Answer:</span> <strong class="${isCorrect ? 'text-emerald-400' : 'text-rose-400'}">${studentAns}</strong></p>
+                        <p><span class="text-slate-400">Correct Answer:</span> <strong class="text-emerald-400">${expectedAnswer}</strong></p>
+                    </div>
+                `}
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+
+    body.innerHTML = html;
+    footer.innerHTML = `
+        <button onclick="window.closeExamModal()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg">Done Reviewing</button>
+    `;
+};
+
+// View Student Marking Guide anytime from Student Dashboard
+window.viewStudentMarkingGuide = async function(examId) {
+    const { data: exam, error: examErr } = await supabaseClient
+        .from('exams')
+        .select('*')
+        .eq('id', examId)
+        .single();
+
+    const { data: sub, error: subErr } = await supabaseClient
+        .from('submissions')
+        .select('*')
+        .eq('exam_id', examId)
+        .eq('student_email', currentUser?.email)
+        .single();
+
+    if (examErr || subErr || !exam || !sub) {
+        alert("Could not retrieve marking guide.");
+        return;
+    }
+
+    let parsedAnswers = {};
+    try {
+        parsedAnswers = typeof sub.answers === 'string' ? JSON.parse(sub.answers) : (sub.answers || {});
+    } catch(e) {
+        parsedAnswers = {};
+    }
+
+    const modal = document.getElementById('exam-modal');
+    if (modal) modal.classList.remove('hidden');
+
+    window.renderMarkingGuideInModal(exam, parsedAnswers, sub.score_obtained, sub.percentage);
 };
 
 // Teacher View Exam Results Modal
